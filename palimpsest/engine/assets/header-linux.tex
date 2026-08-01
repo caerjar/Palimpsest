@@ -1,0 +1,66 @@
+% Palimpsest — Linux LaTeX header for `pal pdf` inside the container.
+% Same typography as the macOS default, but with fonts that ship in the image
+% (texlive-fonts-recommended + fonts-texgyre + fonts-noto + fonts-noto-cjk), so
+% XeLaTeX finds every glyph. The container points at this via PAL_PDF_HEADER.
+
+\usepackage{fancyhdr}
+
+% --- Prose typography (book-like) ---------------------------------------
+\usepackage{microtype}
+\usepackage{setspace}\doublespacing
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0.7\baselineskip plus 2pt}
+\raggedbottom
+\frenchspacing
+
+% --- Fonts (all present in the image) -----------------------------------
+% TeX Gyre Termes is a Times-like transitional serif; TeX Gyre Cursor is the
+% Courier-like mono. Both come with texlive-fonts-recommended.
+\setmainfont{TeX Gyre Termes}
+\setmonofont{TeX Gyre Cursor}[Scale=0.85]
+
+% --- Multilingual glyph fallback ----------------------------------------
+% Auto-switch fonts per Unicode block via XeTeX interchar classes (same
+% technique as the macOS header). Noto covers Greek, Hebrew, arrows, and CJK.
+\XeTeXinterchartokenstate=1
+\newcount\ebloop
+
+\def\ebrange#1#2#3{%
+  \ebloop=#2
+  \loop \ifnum\ebloop<#3
+    \XeTeXcharclass\ebloop=#1
+    \advance\ebloop by 1
+  \repeat}
+\def\ebbind#1#2{%
+  \XeTeXinterchartoks 0 #1 = {\bgroup#2}%
+  \XeTeXinterchartoks 255 #1 = {\bgroup#2}%
+  \XeTeXinterchartoks 4095 #1 = {\bgroup#2}%
+  \XeTeXinterchartoks #1 0 = {\egroup}%
+  \XeTeXinterchartoks #1 255 = {\egroup}%
+  \XeTeXinterchartoks #1 4095 = {\egroup}}
+
+% Greek (U+0370–03FF) + Greek Extended (U+1F00–1FFF).
+\newfontfamily\greekfont{Noto Serif}
+\newXeTeXintercharclass\greekclass
+\ebrange\greekclass{"0370}{"0400}
+\ebrange\greekclass{"1F00}{"2000}
+\ebbind\greekclass\greekfont
+
+% Hebrew (U+0590–05FF).
+\newfontfamily\hebrewfont{Noto Sans Hebrew}
+\newXeTeXintercharclass\hebrewclass
+\ebrange\hebrewclass{"0590}{"0600}
+\ebbind\hebrewclass\hebrewfont
+
+% Arrows (U+2190–21FF) + letterlike aleph (transfinite orders).
+\newfontfamily\arrowfont{Noto Sans Symbols}
+\newXeTeXintercharclass\arrowclass
+\ebrange\arrowclass{"2190}{"2200}
+\ebrange\arrowclass{"2135}{"2139}
+\ebbind\arrowclass\arrowfont
+
+% CJK Unified Ideographs (U+4E00–9FFF).
+\newfontfamily\cjkfont{Noto Sans CJK SC}
+\newXeTeXintercharclass\cjkclass
+\ebrange\cjkclass{"4E00}{"A000}
+\ebbind\cjkclass\cjkfont

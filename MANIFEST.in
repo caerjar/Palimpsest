@@ -1,0 +1,8 @@
+# Ensure the sdist (what Homebrew/pip build from) carries the engine tree and the
+# book template — these are data, not importable subpackages, so list them here.
+recursive-include palimpsest/engine *.py *.css *.js *.html *.tex
+recursive-include palimpsest/_template *
+include LICENSE README.md AI_ASSISANT.md ARCHITECTURE.md
+# never ship build/runtime cruft
+global-exclude __pycache__ *.pyc *.pyo
+prune palimpsest/_template/dossier

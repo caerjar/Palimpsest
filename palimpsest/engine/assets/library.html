@@ -1,0 +1,241 @@
+__PAL_HEAD__
+<title>__PAL_TITLE__ — Library</title>
+<link rel="stylesheet" href="style.css">
+<style>
+.shelf{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px;margin:18px 0 8px}
+.bk{position:relative;background:var(--card);border:1px solid var(--line);border-top:4px solid var(--gold);
+  border-radius:8px;padding:14px 18px 16px;display:flex;flex-direction:column;gap:2px;text-align:left;
+  font:inherit;cursor:pointer;color:inherit}
+.bk:hover{border-color:var(--gold);box-shadow:0 2px 10px rgba(80,60,20,.10)}
+.bk.here{border-top-color:var(--red);background:var(--field)}
+.bk .del{position:absolute;top:8px;right:8px;font:12px Georgia,serif;color:var(--faint);cursor:pointer;
+  border:1px solid transparent;border-radius:11px;padding:1px 7px;line-height:1.4;user-select:none}
+.bk .del:hover{color:var(--red);border-color:var(--red);background:var(--field)}
+.bk .del.arm{color:var(--red);border-color:var(--red);background:var(--field);font-size:11px}
+.bk .del.off{opacity:.3;cursor:not-allowed}
+.bk .del.off:hover{color:var(--faint);border-color:transparent;background:none}
+.bk .t{font-size:19px;font-weight:600;letter-spacing:-.01em}
+.bk .s{font-size:12px;color:var(--soft);font-variant:small-caps;letter-spacing:.05em}
+.bk .m{font-size:13px;color:var(--soft);margin-top:6px}
+.bk .badge{font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--red)}
+.newbook{background:var(--card);border:1px solid var(--line);border-left:3px solid var(--gold);
+  border-radius:0 8px 8px 0;padding:14px 20px 18px;margin-top:8px}
+.newbook .row{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;margin-top:8px}
+.newbook label{display:flex;flex-direction:column;gap:3px;font-size:11px;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--soft)}
+.newbook input{font:15px Georgia,serif;padding:6px 10px;border:1px solid var(--line);
+  border-radius:6px;background:var(--paper);color:var(--ink);min-width:190px}
+.newbook input:focus{outline:none;border-color:var(--gold)}
+button.go{font:14px Georgia,serif;padding:7px 18px;border:1px solid var(--gold);border-radius:20px;
+  background:var(--gold);color:var(--on-accent);cursor:pointer}
+button.go:hover{background:var(--accent-hi)}
+button.go:disabled{opacity:.5;cursor:default}
+#say{font-size:13.5px;color:var(--soft);margin:10px 0 0;min-height:1.3em}
+#say.bad{color:var(--red)}
+.improw{display:flex;flex-wrap:wrap;gap:12px;margin-top:10px}
+.impcard{flex:1;min-width:180px;background:var(--paper);border:1px solid var(--line);border-radius:8px;
+  padding:12px 14px;display:flex;flex-direction:column;gap:4px}
+.impcard b{font-size:15px}
+.impcard span{font-size:12.5px;color:var(--soft)}
+.impcard select{font:12.5px Georgia,serif;border:1px solid var(--line);border-radius:8px;padding:1px 4px;background:var(--field)}
+.impcard .pick{margin-top:6px;font:13px Georgia,serif;color:var(--on-accent);background:var(--gold);border:1px solid var(--gold);
+  border-radius:16px;padding:5px 14px;cursor:pointer;text-align:center}
+.impcard .pick:hover{background:var(--accent-hi)}
+.impcard .pick input{display:none}
+#imp-say{font-size:13.5px;color:var(--soft);margin:12px 0 0;min-height:1.3em}
+#imp-say.bad{color:var(--red)}
+</style></head><body><div class="wrap">
+__PAL_NAV__
+<header><div class="kicker">Library</div>
+<h1>__PAL_TITLE__ <span>— library</span></h1>
+<p class="sub">Click a book to open it here. Everything lives in <code>books/</code> — one folder per
+book, each with its own manuscript, structure and dossier.</p></header>
+
+<h2>Your books</h2>
+<div class="shelf" id="shelf"><p class="note">loading…</p></div>
+
+<h2>Start a new book</h2>
+<div class="newbook">
+  <p class="lead" style="margin:0">A new book gets a manuscript folder with one starter section, and
+  opens right away. Add sections in the reading copy, or drop numbered
+  <code>.md</code> files into its <code>manuscript/</code> folder.</p>
+  <div class="row">
+    <label>Title<input id="title" type="text" placeholder="The Third Arm" autocomplete="off"></label>
+    <label>Author<input id="author" type="text" placeholder="your name" autocomplete="off"></label>
+    <button class="go" id="create">create &amp; open</button>
+  </div>
+  <p id="say"></p>
+</div>
+
+<h2>Import a manuscript</h2>
+<div class="newbook" id="importbox">
+  <p class="lead" style="margin:0">Turn an existing manuscript into a book. Give it a title, then choose a
+  source — a folder of Markdown files, a PDF, or a Word document.</p>
+  <div class="row">
+    <label>Title<input id="imp-title" type="text" placeholder="title for the imported book" autocomplete="off"></label>
+  </div>
+  <div class="improw">
+    <div class="impcard">
+      <b>Markdown folder</b><span>one <code>.md</code> file per section</span>
+      <label class="pick">choose folder…<input id="imp-md" type="file" webkitdirectory directory multiple accept=".md,.markdown,.txt"></label>
+    </div>
+    <div class="impcard">
+      <b>PDF</b>
+      <span>split by <select id="imp-pdf-by"><option value="chapter">chapter</option><option value="page">page</option></select></span>
+      <label class="pick">choose PDF…<input id="imp-pdf" type="file" accept=".pdf"></label>
+    </div>
+    <div class="impcard">
+      <b>Word (.docx)</b><span>split at headings</span>
+      <label class="pick">choose file…<input id="imp-docx" type="file" accept=".docx"></label>
+    </div>
+  </div>
+  <p id="imp-say"></p>
+</div>
+
+<footer>Palimpsest · books live in <code id="wbhome">…</code>
+<span class="wbnote">— change it with <code>pal home &lt;folder&gt;</code>. Removing a book moves it to
+<code>.trash/</code> in there (restore by moving it back).</span></footer>
+</div>
+<script>
+const HTTP = location.protocol.startsWith('http');
+const shelf = document.getElementById('shelf');
+const say = (m, bad) => { const s=document.getElementById('say'); s.textContent=m; s.className = bad?'bad':''; };
+
+function card(b, active){
+  const el = document.createElement('button');
+  el.className = 'bk' + (b.slug===active ? ' here' : '');
+  const isOpen = b.slug===active;
+  el.innerHTML =
+    (isOpen ? '<span class="badge">open now</span>' : '<span class="badge">&nbsp;</span>') +
+    '<span class="del" role="button" tabindex="0" title="' +
+      (isOpen ? 'open another book first to delete this one' : 'remove this book') + '">✕</span>' +
+    '<span class="t"></span><span class="s"></span>' +
+    '<span class="m">' + b.sections + ' section' + (b.sections===1?'':'s') +
+    (b.built ? '' : ' · not built yet') + '</span>';
+  el.querySelector('.t').textContent = b.title || b.slug;
+  el.querySelector('.s').textContent = b.slug;
+  el.addEventListener('click', () => open(b, active));
+  const del = el.querySelector('.del');
+  if(isOpen) del.classList.add('off');
+  del.addEventListener('click', (e) => { e.stopPropagation(); if(!isOpen) armDelete(b, del); });
+  return el;
+}
+
+// two-click confirm, then move the book to .trash (no blocking dialog)
+function armDelete(b, del){
+  if(del.dataset.arm==='1'){ doDelete(b, del); return; }
+  del.dataset.arm='1'; del.textContent='delete “' + (b.title||b.slug) + '”? click again';
+  del.classList.add('arm');
+  setTimeout(() => { if(del.dataset.arm==='1'){ del.dataset.arm=''; del.textContent='✕'; del.classList.remove('arm'); } }, 4000);
+}
+async function doDelete(b, del){
+  del.dataset.arm=''; del.textContent='removing…';
+  try{
+    const r = await fetch('/book-delete', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({slug: b.slug})});
+    const d = await r.json();
+    if(!d.ok) throw new Error(d.error || 'could not remove it');
+    load();
+  }catch(e){ del.textContent='✕'; del.classList.remove('arm'); say(e.message, true); }
+}
+
+async function load(){
+  if(!HTTP){ shelf.innerHTML = '<p class="note">The library needs the server — run <code>pal serve</code> and open this page through it.</p>'; return; }
+  try{
+    const r = await fetch('/books');
+    const d = await r.json();
+    if(!d.ok) throw new Error(d.error || 'could not read the library');
+    const hb = document.getElementById('wbhome'); if(hb && d.home) hb.textContent = d.home;
+    shelf.innerHTML = '';
+    if(!d.books.length){ shelf.innerHTML = '<p class="note">No books yet — make your first one below, or drop a book folder into your workbench.</p>'; }
+    else d.books.forEach(b => shelf.appendChild(card(b, d.active)));
+  }catch(e){ shelf.innerHTML = '<p class="note">could not load the library: ' + e.message + '</p>'; }
+}
+
+async function open(b, active){
+  if(b.slug === active){ location.href = 'reading-copy.html'; return; }
+  say('opening ' + (b.title || b.slug) + (b.built ? '…' : ' — building it first, this can take a moment…'));
+  try{
+    const r = await fetch('/book-open', {method:'POST', headers:{'Content-Type':'application/json'},
+                                         body: JSON.stringify({slug: b.slug})});
+    const d = await r.json();
+    if(!d.ok) throw new Error(d.error || 'could not open it');
+    waitForRestart(b.slug);
+  }catch(e){ say(e.message, true); }
+}
+
+document.getElementById('create').addEventListener('click', async () => {
+  const title = document.getElementById('title').value.trim();
+  const author = document.getElementById('author').value.trim();
+  if(!title){ say('give the book a title first', true); return; }
+  const btn = document.getElementById('create'); btn.disabled = true;
+  say('creating “' + title + '” and building its dossier…');
+  try{
+    const r = await fetch('/book-new', {method:'POST', headers:{'Content-Type':'application/json'},
+                                        body: JSON.stringify({name:title, title, author})});
+    const d = await r.json();
+    if(!d.ok) throw new Error(d.error || 'could not create it');
+    say('created ' + d.slug + ' — opening…');
+    waitForRestart(d.slug);
+  }catch(e){ say(e.message, true); btn.disabled = false; }
+});
+
+// ---- import a manuscript ----
+const impSay = (m, bad) => { const s=document.getElementById('imp-say'); s.textContent=m; s.className = bad?'bad':''; };
+function impTitle(fallback){ return (document.getElementById('imp-title').value.trim() || fallback || 'Imported book'); }
+async function finishImport(promise, what){
+  impSay(what + ' — importing…');
+  try{
+    const r = await promise;
+    const d = await r.json();
+    if(!d.ok) throw new Error(d.error || 'import failed');
+    impSay('imported ' + d.sections + ' section(s) — opening…');
+    waitForRestart(d.slug);
+  }catch(e){ impSay(e.message, true); }
+}
+// Markdown folder: read each .md client-side and post as JSON
+document.getElementById('imp-md').addEventListener('change', async (ev) => {
+  const all = [...ev.target.files].filter(f => /\.(md|markdown|txt)$/i.test(f.name));
+  if(!all.length){ impSay('no .md files in that folder', true); return; }
+  const title = impTitle(folderName(all));
+  impSay('reading ' + all.length + ' files…');
+  const files = await Promise.all(all.map(f => f.text().then(text => ({name: f.webkitRelativePath || f.name, text}))));
+  finishImport(fetch('/import?kind=md&title=' + encodeURIComponent(title),
+      {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({title, files})}),
+      title);
+});
+function folderName(files){ const p=(files[0].webkitRelativePath||''); return p.split('/')[0] || 'Imported book'; }
+// PDF / DOCX: post the raw bytes
+function uploadBinary(inputId, kind){
+  document.getElementById(inputId).addEventListener('change', (ev) => {
+    const f = ev.target.files[0]; if(!f) return;
+    const title = impTitle(f.name.replace(/\.[^.]+$/,''));
+    const by = kind==='pdf' ? '&by=' + document.getElementById('imp-pdf-by').value : '';
+    const url = '/import?kind=' + kind + '&title=' + encodeURIComponent(title) + by;
+    finishImport(fetch(url, {method:'POST', headers:{'Content-Type':'application/octet-stream'}, body: f}), f.name);
+  });
+}
+uploadBinary('imp-pdf', 'pdf');
+uploadBinary('imp-docx', 'docx');
+
+// The server restarts to bind the new book. Poll until it reports THAT book as
+// active — the old process answers for a moment yet, and navigating on the first
+// successful reply would drop us back into the book we just left.
+function waitForRestart(slug, tries){
+  tries = tries || 0;
+  setTimeout(async () => {
+    try{
+      const r = await fetch('/books', {cache:'no-store'});
+      if(r.ok){
+        const d = await r.json();
+        if(d.active === slug){ location.href = 'reading-copy.html'; return; }
+      }
+    }catch(e){ /* still restarting */ }
+    if(tries < 90) waitForRestart(slug, tries + 1);
+    else say('the server is taking a long time to come back — reload this page', true);
+  }, 500);
+}
+
+load();
+</script>
+<script src="pal.js"></script>
+</body></html>

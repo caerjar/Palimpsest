@@ -1,0 +1,155 @@
+__PAL_HEAD__
+<title>__PAL_TITLE__ — Help</title>
+<link rel="stylesheet" href="style.css">
+<style>
+.help h2{margin-top:1.5em}
+.help h3{margin:1.2em 0 .2em}
+.help ul{margin:.3em 0 .8em;padding-left:1.3em}
+.help li{margin:.25em 0}
+.help .kbd{background:var(--code-bg);border:1px solid var(--line);border-radius:4px;padding:0 6px;font:12px ui-monospace,Menlo,monospace}
+.help .tocbox{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:8px 18px;margin:8px 0 4px;
+  columns:2;column-gap:28px;font-size:14px}
+.help .tocbox a{display:block;padding:2px 0;color:var(--soft);text-decoration:none}
+.help .tocbox a:hover{color:var(--gold)}
+@media(max-width:600px){.help .tocbox{columns:1}}
+</style></head><body><div class="wrap">
+__PAL_NAV__
+<header><div class="kicker">Help</div>
+<h1>Help <span>— using __PAL_TITLE__</span></h1>
+<p class="sub">Palimpsest turns a folder of numbered Markdown sections into an editorial workbench you
+edit in the browser, then export. It also plays your writing like a musical score.</p></header>
+
+<div class="help">
+<div class="tocbox">
+  <a href="#start">Getting started</a>
+  <a href="#write">Writing &amp; editing</a>
+  <a href="#sections">Sections</a>
+  <a href="#labels">Labels &amp; parts</a>
+  <a href="#index">Index (watchlist)</a>
+  <a href="#motifs">Motifs</a>
+  <a href="#copyedit">Copyedit review</a>
+  <a href="#board">Edit board</a>
+  <a href="#export">Export</a>
+  <a href="#import">Import</a>
+  <a href="#books">Managing books</a>
+  <a href="#privacy">Privacy &amp; access</a>
+  <a href="#tips">Tips</a>
+</div>
+
+<h2 id="start">Getting started</h2>
+<p class="lead">A <b>book</b> is a folder of sections. Open the <a href="library.html">Library</a> (top bar) to
+create a new book, import one, switch between books, or remove one.</p>
+<ul>
+  <li><b>New book:</b> Library → “Start a new book”, give it a title. It opens with one starter section.</li>
+  <li><b>Import:</b> Library → “Import a manuscript” — upload a PDF or Word file, or pick a folder of
+      <code>.md</code> files. See <a href="#import">Import</a>.</li>
+  <li>The top bar is the same on every page: the book title (→ reading copy), the menus, and
+      <b>⤓ Export</b> / <b>↻ Rebuild</b> on the right.</li>
+</ul>
+
+<h2 id="write">Writing &amp; editing</h2>
+<p>The <a href="reading-copy.html">Reading copy</a> is home — every section in reading order.</p>
+<ul>
+  <li><b>Edit a section:</b> click <b>✎ edit</b> under it, type, then it saves to disk automatically
+      (and, when your book is in a git repo, commits — so <b>⧗ history</b> can show and restore past versions).</li>
+  <li><b>Search &amp; filter:</b> the search box and the chips at the top isolate sections by word, motif, or label.</li>
+</ul>
+
+<h2 id="sections">Sections</h2>
+<ul>
+  <li><b>Add / insert:</b> <span class="kbd">＋ section</span> (bottom-left) adds one at the end;
+      <b>＋ insert below</b> under a section inserts after it.</li>
+  <li><b>Reorder:</b> drag the <span class="kbd">⠿</span> handle.</li>
+  <li><b>Set aside:</b> <b>⇥ set aside</b> parks a section out of the flow (kept on disk, shown in the “Set aside” shelf).</li>
+  <li><b>Delete:</b> <b>🗑 delete</b> archives a section to <code>manuscript/_attic/</code> — reversible.</li>
+</ul>
+
+<h2 id="labels">Labels &amp; parts</h2>
+<ul>
+  <li><b>Labels:</b> click <b>+ label</b> on a section to tag it; labels become filter chips and a colored dimension.</li>
+  <li><b>Parts:</b> use the <a href="parts-board.html">Parts board</a> to group sections into parts / chapters.</li>
+</ul>
+
+<h2 id="index">Index (watchlist)</h2>
+<p>The <a href="index-terms.html">Index</a> is your back-of-book watchlist. Add a term (with optional aliases)
+and it lists every section where the word appears, found by searching the text. Add and remove terms right on
+the page; a term you add shows immediately (with a 0 count until the word turns up in your writing).</p>
+
+<h2 id="motifs">Motifs</h2>
+<p>A <b>motif</b> is a thread you name — a word or an idea that keeps coming back. On the
+<a href="motifs.html">Motifs</a> page, give it a name and a colour, then type a word and press
+<b>find</b>: every section containing that word is added, and you can adjust the list by
+hand. The reading copy then shows each motif as a chip and colours the spine of every section it
+appears in. Nothing is inferred — the search only finds a word you chose.</p>
+
+<h2 id="copyedit">Copyedit review</h2>
+<p>The <a href="copyedit-review.html">Copyedit review</a> shows each section as original (left) vs. a suggested
+edit (right), with word-level highlighting. Edit on the right, <b>save</b> to write it back, <b>mark done</b> to
+finish. Suggestions live in <code>manuscript-suggestions/</code> and are yours to fill in — nothing is generated.</p>
+
+<h2 id="board">Edit board</h2>
+<p>The <a href="edit-board.html">Edit board</a> is a revision checklist. Add columns and items in the page; tick
+them off as you work. Both the checklist and your ticks save to the book.</p>
+
+<h2 id="export">Export</h2>
+<p>Top bar → <b>⤓ Export</b>:</p>
+<ul>
+  <li><b>Markdown</b> and <b>Web page (HTML)</b> — always available, no tools needed.</li>
+  <li><b>Word (.docx)</b> — needs <code>pandoc</code>.</li>
+  <li><b>PDF</b> — needs <code>pandoc</code> + XeLaTeX.</li>
+</ul>
+<p>Running in Docker, all four work out of the box. The menu greys out a format whose tool isn't installed.</p>
+
+<h2 id="import">Import</h2>
+<p>Library → “Import a manuscript”. A <b>PDF</b> splits by chapter (its bookmarks) or by page; a <b>Word</b> file
+splits at headings; a <b>Markdown folder</b> becomes one section per file. Each import creates a new book.</p>
+<ul>
+  <li><b>Markdown folder</b> — no tools needed.</li>
+  <li><b>Word (.docx)</b> — needs <code>pandoc</code>.</li>
+  <li><b>PDF</b> — needs <b>PyMuPDF</b>, which has to be installed into the same environment Palimpsest
+      runs from; a <code>pip install</code> in a different Python won't be found. If it's missing, the import
+      says so and prints the exact command for your install.</li>
+</ul>
+<p>Running in Docker, all three work out of the box.</p>
+
+<h2 id="books">Managing books</h2>
+<ul>
+  <li><b>Switch / open:</b> click a book in the Library.</li>
+  <li><b>Remove:</b> the <b>✕</b> on a book card moves it to <code>.trash/</code> in your workbench (recoverable —
+      move it back to restore). You can't delete the book that's currently open.</li>
+  <li><b>Where books live:</b> shown at the bottom of the Library; change it with <code>pal home &lt;folder&gt;</code>.</li>
+</ul>
+
+<h2 id="privacy">Privacy &amp; access</h2>
+<ul>
+  <li><b>Nothing leaves your machine.</b> No accounts, no network calls, no AI. The server binds to
+      localhost by default (in Docker the port is published to localhost too), and whatever it is bound to,
+      it refuses requests that come from another site or that arrive addressed to another hostname — so a
+      page you have open in another tab can't reach your book.</li>
+  <li><b>There is no password.</b> Anything that can reach the port can edit the book, which is exactly
+      why it stays on localhost. If you deliberately publish it (a reverse proxy, a different Docker
+      <code>ports:</code> line), name that hostname in <code>PAL_ALLOWED_HOSTS</code> — and put your own
+      authentication in front of it.</li>
+  <li><b>The writing record keeps keystrokes.</b> The Writing record page logs your typing to
+      <code>dossier/keystrokes/*.jsonl</code> — a plain-text record of what you typed and when. Palimpsest
+      never commits it (saves only stage the manuscript and your authored files), and a new book's
+      <code>.gitignore</code> excludes <code>dossier/</code> so your own commits skip it too. It stays on this
+      machine, but it is readable by anything that can read the folder; delete the files to clear it.</li>
+  <li><b>A book folder is executable content in one sense:</b> its <code>book.toml</code> decides which
+      directories are read and written, and can supply a LaTeX header used when exporting a PDF. Palimpsest
+      warns on startup when a book points outside its own folder, and refuses a LaTeX header from outside it.
+      Treat a book someone sent you the way you'd treat any other file from them.</li>
+</ul>
+
+<h2 id="tips">Tips</h2>
+<ul>
+  <li><b>↻ Rebuild</b> regenerates the reading pages from your latest edits — use it if a page looks stale. It
+      never changes your writing.</li>
+  <li>The little <b>built HH:MM</b> stamp (bottom-left) tells you when the page was generated; reload if it looks old.</li>
+  <li>These editing controls only work when the app is served (<code>pal serve</code> or the Docker app). Opened as a
+      plain file, pages are read-only.</li>
+</ul>
+</div>
+</div>
+<script src="pal.js"></script>
+</body></html>

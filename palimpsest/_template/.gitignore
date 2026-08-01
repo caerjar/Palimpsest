@@ -1,0 +1,14 @@
+# A book keeps its writing in git; everything below is regenerated from it.
+#
+# dossier/ is the built HTML. It also holds the writing record's keystroke logs
+# (dossier/keystrokes/*.jsonl — a plain-text record of what you typed and when),
+# which are local working data and shouldn't end up in your history.
+dossier/
+
+# exports, rebuilt on demand from the manuscript (root level only — the .md
+# files under manuscript/ are the book itself and are always tracked)
+/*.pdf
+/*.docx
+/*.html
+
+.DS_Store

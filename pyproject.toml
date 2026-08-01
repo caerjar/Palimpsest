@@ -1,0 +1,85 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "palimpsest"
+version = "1.0.0"
+description = "A ritual space for writing"
+readme = "README.md"
+requires-python = ">=3.11"          # needs tomllib (stdlib since 3.11)
+license = { text = "MIT" }
+authors = [{ name = "Eon" }]
+keywords = ["writing", "manuscript", "editing", "markdown", "publishing", "offline"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: End Users/Desktop",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: MacOS",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3 :: Only",
+    "Topic :: Text Processing :: Markup :: Markdown",
+]
+# Core is pure stdlib — no runtime dependencies. External tools (git, pandoc,
+# XeLaTeX) are optional and detected at runtime; PyMuPDF is an optional extra.
+dependencies = []
+
+[project.optional-dependencies]
+pdf = ["PyMuPDF>=1.23"]             # richer PDF import; MD/DOCX import needs nothing
+
+[project.urls]
+Homepage = "https://github.com/caerjar/Palimpsest"
+Repository = "https://github.com/caerjar/Palimpsest"
+
+[project.scripts]
+pal = "palimpsest.cli:main_cli"
+
+[tool.setuptools]
+# engine/ is executed as subprocesses on PYTHONPATH (not imported as a subpackage),
+# and _template/ is data — so ship both as package data rather than as packages.
+packages = ["palimpsest"]
+include-package-data = true
+
+[tool.setuptools.package-data]
+palimpsest = [
+    "engine/*.py",
+    "engine/builders/*.py",
+    "engine/assets/*",
+    "_template/book.toml",
+    "_template/.gitignore",     # a new book ignores its own generated dossier
+    "_template/**/*.md",
+    "_template/**/.gitkeep",
+]
+
+# ---------------------------------------------------------------- lint
+# There are no tests-as-types here and no formatter: this config is deliberately
+# a bug-finder, not a style enforcer. The rules that are off are off because the
+# codebase makes a considered choice against them, not because they were noisy.
+[tool.ruff]
+target-version = "py311"
+line-length = 110
+exclude = ["docs", "homebrew-tap"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "B", "UP"]
+ignore = [
+    # The builders emit HTML from long f-strings, where a "fix" means breaking a
+    # tag across lines and making the output harder to read than the source.
+    "E501",
+    # save_server validates with one-line guards (`if not ok: raise ValueError(...)`)
+    # so a handler's happy path stays readable in one screen. It is consistent
+    # within that file and load-bearing there.
+    "E701", "E702",
+    # `l` for a line in a comprehension over lines. Fine in a two-line scope.
+    "E741",
+    # palimpsest/__init__.py imports .cli after computing __version__, on purpose.
+    "E402",
+    # `import html, json, os, re` — the compact form is used consistently across
+    # the engine and the builders. Splitting it is churn, not a fix.
+    "E401",
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Tests name unused loop variables for readability in subTest reporting.
+"tests/*" = ["B007"]

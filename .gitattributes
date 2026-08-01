@@ -1,0 +1,19 @@
+# Normalize line endings — text files are LF in the repo, on every platform.
+* text=auto eol=lf
+
+# These are always text
+*.py    text
+*.md    text
+*.toml  text
+*.json  text
+*.html  text
+*.css   text
+*.js    text
+*.tex   text
+*.sh    text eol=lf
+
+# Binary
+*.pdf   binary
+*.docx  binary
+*.png   binary
+*.jpg   binary

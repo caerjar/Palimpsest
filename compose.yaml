@@ -1,0 +1,22 @@
+# Palimpsest — one service that builds the image and serves the app.
+# Books persist on the host in ./workbench (mounted at /data), so the container
+# is disposable. The port is published on the host loopback only.
+services:
+  pal:
+    build: .
+    image: palimpsest
+    ports:
+      - "127.0.0.1:8137:8137"
+    volumes:
+      - ./workbench:/data
+    environment:
+      # PORT / PAL_BIND / PAL_NO_BROWSER / PAL_PDF_HEADER are baked into the image;
+      # override here if you want a different host book (PAL_BOOK) or port.
+      PAL_HOME: /data
+      # The app has no login: whoever reaches the port can edit the book. It is
+      # published on the host loopback above, and the server additionally answers
+      # only to a localhost Host header. If you deliberately expose it (a different
+      # ports: line, a reverse proxy), name that hostname here or it will refuse:
+      #   PAL_ALLOWED_HOSTS: "my-machine.local:8137"
+    stdin_open: true
+    tty: true

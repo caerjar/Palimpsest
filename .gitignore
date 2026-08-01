@@ -1,0 +1,38 @@
+__pycache__/
+*.pyc
+.DS_Store
+.buildstamp
+
+# Books are personal writing — they live on your machine, not in this repo.
+# The dev workbench is ./books; nothing under it is committed. The book TEMPLATE
+# now ships inside the package (palimpsest/_template), so a clone still starts
+# with the tool and a way to make a book, but no personal content.
+books/
+
+# generated output / exports under the shipped template (should never be committed)
+palimpsest/_template/dossier/
+palimpsest/_template/*.pdf
+palimpsest/_template/*.docx
+palimpsest/_template/*.html
+
+# the Docker workbench (host-mounted books live here) + any archived copies
+workbench/
+workbench.bak*/
+
+# Python build + venv artifacts
+.venv/
+venv/
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# macOS .app / .dmg build staging (packaging/build_dmg.sh)
+packaging/bundled/
+.build-venv/
+
+# A local clone of the tap repo (caerjar/homebrew-tap) lives here for convenience.
+# It is NOT a submodule: the formula's source of truth is homebrew/, which we copy
+# across. Committed as a bare gitlink it broke every --recurse-submodules checkout,
+# GitHub Pages included.
+homebrew-tap/

@@ -1,0 +1,292 @@
+/* ============================================================ THEME TOKENS
+   Two looks ship: "paper" (the original) and "vapor" (dark vaporwave). The
+   theme is one attribute on <html> — nav.page_head() writes data-theme, pal.js
+   flips it — so switching costs no rebuild and no redraw.
+
+   :root holds the PAPER values, which makes paper the CSS fallback: anything
+   that escapes theming, and anything printed, still gets a sane colour.
+   :root[data-theme="vapor"] overrides.
+
+   Radius and spacing are deliberately NOT tokenised — both themes want the
+   same 8px/20px geometry, so tokens there would touch ~120 declarations for no
+   visual payoff. Please don't "finish the job".                            */
+:root{
+  /* — grounds and surfaces, back to front — */
+  --bg:#f1ead9;              /* the page behind the sheet */
+  --paper:#fbf7ef;           /* the sheet itself (.wrap) */
+  --bg2:#efe9da;             /* secondary ground: columns, shelves, bars */
+  --sunk:#fbf7ec;            /* inset wells, <details>, code */
+  --card:#fffdf8;            /* raised cards, menus, pills */
+  --bar:#f6f0e1f2;           /* sticky top bar (translucent) */
+  --field:#fff;              /* inputs and button faces */
+  --hilite:#faf4e2;          /* active / selected fill */
+  --invert-bg:#2b2519;       /* inverted chrome: tooltips, toolbars */
+  --invert-ink:#f6f0e1;      /* text on inverted chrome */
+  /* — text, most to least prominent — */
+  --ink:#2b2519;             /* headings, primary text */
+  --ink2:#3a3320;            /* running prose (the manuscript body) */
+  --ink3:#43412f;            /* leads, card prose */
+  --soft:#5c5340;            /* secondary text */
+  --faint:#9c8f76;           /* captions, axis labels */
+  --on-accent:#fff;          /* text sitting on a --gold fill */
+  /* — accents — */
+  --gold:#b8860b;            /* primary accent, brand, rules */
+  --accent-hi:#a3760a;       /* accent hover */
+  --accent2:#1f8a70;         /* second accent (cyan in vapor) */
+  --red:#c0392b;             /* alarm, h3, caret */
+  --ok:#1f8a70;              /* insertion / agreement */
+  --warn:#a04000;            /* flag / attention */
+  --link:#9c5a16;            /* body links */
+  /* — lines and depth — */
+  --line:#e3d9c4;
+  --shadow:0 0 40px rgba(80,60,20,.12);
+  --shadow-pop:0 4px 16px rgba(80,60,20,.18);
+  --glow:none;                                    /* display-text glow */
+  --iris:linear-gradient(90deg,#b8860b,#b8860b);  /* flat in paper */
+  --tracking-display:-.01em;
+  /* — decorative art strength (0 = off) — */
+  --wash:0;                  /* page watermark, diagram pages */
+  --wash-prose:0;            /* page watermark, reading surfaces */
+  --art-op:.06;              /* the music screen's showpiece */
+  --dot-op:0;                /* interpuncts between display letters */
+  /* — small distinct surfaces (own tokens so paper parity holds exactly) — */
+  --hover:#f4eedd;           /* menu/button hover wash */
+  --code-bg:#efe7d4;         /* inline <code> */
+  --note-bg:#f4eeddaa;       /* .note tint (translucent) */
+  --quote-bg:#f4eedd88;      /* blockquote tint (translucent) */
+  --mark-bg:#ffe9a8;         /* search-hit highlight (<mark>) */
+}
+:root[data-theme="vapor"]{
+  /* Neon lives in the CHROME. Running prose stays --ink2 on --paper, a
+     low-chroma dark ground at ~13:1, with no gradient and no glow behind it —
+     this is a workbench you edit 9,000 words in, not a poster.             */
+  --bg:#0b0722; --paper:#151033; --bg2:#191243; --sunk:#120d31; --card:#1b1442;
+  --bar:#100b2ee6; --field:#221a52; --hilite:#2b1d5e;
+  --invert-bg:#2a1f66; --invert-ink:#f2eeff;
+  --ink:#eae6ff; --ink2:#e6e2ff; --ink3:#cfc8ff; --soft:#a89fd4; --faint:#8b81c4;
+  --on-accent:#0b0722;
+  --gold:#ff4fd8; --accent-hi:#ff7ae6; --accent2:#4ff0ff; --red:#ff5c8a;
+  --ok:#3ce8b4; --warn:#ffb347; --link:#6ff2ff;
+  --line:#3a2f6e;
+  --shadow:0 0 0 1px #ff4fd833, 0 0 60px #6d28d955;
+  --shadow-pop:0 8px 28px #05001fcc;
+  --glow:0 0 12px #ff4fd866;
+  --iris:linear-gradient(100deg,#ff4fd8,#a855f7,#4ff0ff);
+  --tracking-display:.05em;
+  --wash:.30; --wash-prose:.13; --art-op:.55; --dot-op:.55;
+  --hover:#241a58; --code-bg:#241a58; --note-bg:#191243cc; --quote-bg:#19124399;
+  --mark-bg:#6b1f57;
+  /* Not cosmetic: without this the ~15 native selects on the writing-record
+     page, every scrollbar and every range/checkbox render LIGHT on a dark
+     page. Nothing else fixes those — they are UA-drawn.                    */
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);
+  font:17px/1.62 Georgia,"Iowan Old Style",serif}
+.wrap{max-width:1040px;margin:0 auto;background:var(--paper);
+  padding:48px 60px 80px;box-shadow:var(--shadow);min-height:100vh}
+header{border-bottom:2px solid var(--gold);padding-bottom:22px;margin-bottom:8px}
+.kicker{letter-spacing:.22em;text-transform:uppercase;font-size:12px;color:var(--gold)}
+h1{font-size:40px;margin:.15em 0 .1em;font-weight:600;letter-spacing:-.01em}
+h1 span{color:var(--soft);font-weight:400;font-size:30px}
+.sub{color:var(--soft);font-style:italic;margin:.4em 0 0}
+h2{font-size:26px;margin:1.7em 0 .5em;color:var(--ink);border-bottom:1px solid var(--line);padding-bottom:.2em}
+h3{font-size:18px;margin:1.3em 0 .3em;color:var(--red)}
+.lead{font-size:17px;color:var(--ink3)}
+.note{font-size:14.5px;color:var(--soft);background:var(--note-bg);border-left:3px solid var(--gold);padding:10px 16px;border-radius:0 6px 6px 0}
+svg{display:block;width:100%;height:auto;margin:18px 0;border:1px solid var(--line);border-radius:8px;background:var(--paper)}
+/* shared sticky top bar (nav.py topbar_html) — same on every page */
+.topbar{position:sticky;top:0;z-index:40;display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;
+  margin:0 -60px 20px;padding:9px 60px;background:var(--bar);backdrop-filter:blur(6px);
+  border-bottom:1px solid var(--line)}
+.topbar .brand{font:600 18px Georgia,serif;color:var(--ink);text-decoration:none;white-space:nowrap;margin-right:2px}
+.topbar .brand:hover{color:var(--gold)}
+.topbar nav.toc{margin:0;flex:1 1 auto}
+.topbar .topacts{display:flex;align-items:center;gap:8px;margin-left:8px}
+/* the theme toggle takes the right-hand slot whether or not the server actions
+   (Export / Rebuild) are present — they are hidden on file:// */
+.paltheme{margin-left:auto;background:transparent;color:var(--gold);display:inline-flex;
+  align-items:center;gap:6px}
+.paltheme:hover{background:var(--hilite)}
+.paltheme .tg{font-size:14px;line-height:1}
+.paltheme .tl{font-variant:small-caps;letter-spacing:.06em}
+.palbtn{font:13px Georgia,serif;border:1px solid var(--gold);background:var(--gold);color:var(--on-accent);
+  border-radius:20px;padding:5px 14px;cursor:pointer;white-space:nowrap}
+.palbtn:hover{background:var(--accent-hi);border-color:var(--accent-hi)}
+.palbtn[data-pal="rebuild"]{background:transparent;color:var(--gold)}
+.palbtn[data-pal="rebuild"]:hover{background:var(--hover)}
+.palbtn:disabled{opacity:.45;cursor:not-allowed;background:transparent;color:var(--soft);border-color:var(--line)}
+.palexport{position:relative}
+.palbtn[data-pal="export-menu"]{display:inline-flex;align-items:center;gap:6px}
+.palbtn .caret{font-size:11px;transition:transform .15s}
+.palbtn[aria-expanded="true"] .caret{transform:rotate(180deg)}
+.palmenu{position:absolute;right:0;top:calc(100% + 6px);z-index:60;background:var(--card);
+  border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow-pop);
+  padding:5px;min-width:170px;display:flex;flex-direction:column;gap:2px}
+.palmenu[hidden]{display:none}
+.palitem{font:13.5px Georgia,serif;text-align:left;background:none;border:0;border-radius:7px;
+  padding:7px 12px;cursor:pointer;color:var(--ink)}
+.palitem:hover{background:var(--hover);color:var(--gold)}
+.palitem:disabled{opacity:.4;cursor:not-allowed;color:var(--soft)}
+.palitem:disabled:hover{background:none}
+.palmsg{font-size:12.5px;color:var(--soft);font-style:italic;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+@media(max-width:760px){.topbar{margin:0 -20px 16px;padding:8px 20px}.topbar .topacts{margin-left:0}}
+nav.toc{display:flex;flex-wrap:wrap;gap:8px;margin:22px 0 8px;align-items:center}
+/* top-level links + dropdown buttons share one pill look */
+nav.toc .navlink,nav.toc .navdrop-btn{font:13.5px Georgia,serif;text-decoration:none;color:var(--soft);
+  border:1px solid var(--line);padding:5px 12px;border-radius:20px;background:var(--card);
+  cursor:pointer;display:inline-flex;align-items:center;gap:5px}
+nav.toc .navlink:hover,nav.toc .navdrop-btn:hover{border-color:var(--gold);color:var(--gold)}
+nav.toc .navlink.here,nav.toc .navdrop-btn.here{border-color:var(--gold);color:var(--gold);font-weight:bold;background:var(--field)}
+nav.toc .caret{font-size:10px;transition:transform .15s}
+nav.toc [aria-expanded="true"] .caret{transform:rotate(180deg)}
+.navdrop{position:relative;display:inline-flex}
+.navdrop-menu{position:absolute;left:0;top:calc(100% + 6px);z-index:60;background:var(--card);
+  border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow-pop);
+  padding:5px;min-width:180px;display:flex;flex-direction:column;gap:1px}
+.navdrop-menu[hidden]{display:none}
+.navdrop-menu a.navitem{font:13.5px Georgia,serif;text-decoration:none;color:var(--ink);
+  border:0;background:none;border-radius:7px;padding:7px 12px;white-space:nowrap;display:block}
+.navdrop-menu a.navitem:hover{background:var(--hover);color:var(--gold)}
+.navdrop-menu a.navitem.here{color:var(--gold);font-weight:bold}
+table{border-collapse:collapse;width:100%;margin:14px 0;font-size:14.5px}
+th,td{text-align:left;padding:7px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+th{color:var(--soft);font-variant:small-caps;letter-spacing:.04em;border-bottom:2px solid var(--gold)}
+footer{margin-top:48px;padding-top:16px;border-top:1px solid var(--line);
+  font-size:12.5px;color:var(--soft)}
+blockquote{border-left:3px solid var(--gold);margin:1em 0;padding:.3em 18px;color:var(--soft);font-style:italic;background:var(--quote-bg)}
+code{background:var(--code-bg);padding:1px 5px;border-radius:4px;font-size:.9em}
+a{color:var(--link)}
+.lchip{font-size:11px;border:1px solid;border-radius:12px;padding:1px 8px;margin-left:4px;
+  display:inline-block;font-style:italic}
+
+/* ---- the page watermark ----------------------------------------------------
+   Delivered as CSS, not markup, so it reaches all 16 surfaces (including the
+   three hand-written static pages and copyedit) with no HTML changes at all.
+   Three deliberate choices:
+     · isolation:isolate + z-index:-1, NOT position:relative on .wrap's children —
+       that would break .topbar's position:sticky.
+     · no-repeat, anchored near the top, never background-attachment:fixed. The
+       art sits behind the header and the first screen and then stops, so on a
+       238-section reading copy it cannot end up behind paragraph 400. This is
+       the readability guard, not the opacity.
+     · mix-blend-mode:screen can only lighten, never darken, so it cannot muddy
+       text; and suppression is one token (--wash:0 in paper and in print).
+   The '#' in the data-URI is percent-encoded — unencoded it truncates the URL at
+   the fragment and you get no image and no error. */
+.wrap{position:relative;isolation:isolate}
+.wrap::before{content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;
+  background:url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1000 420' fill='none'> <defs><linearGradient id='i' x1='0' y1='0' x2='1' y2='1'> <stop offset='0' stop-color='%23ff4fd8'/><stop offset='.5' stop-color='%23a855f7'/> <stop offset='1' stop-color='%234ff0ff'/></linearGradient></defs> <g stroke='url(%23i)' stroke-width='1.2' stroke-linecap='round' stroke-linejoin='round'> <%21-- sun: a disc cut by widening bands --> <circle cx='500' cy='170' r='118'/> <path d='M395 108h210M389 132h222M386 158h228M389 186h222M398 214h204M416 242h168'/> <%21-- horizon grid --> <path d='M60 330h880'/> <path d='M60 420 500 330M180 420 500 330M300 420 500 330M420 420 500 330M500 420v-90M580 420 500 330M700 420 500 330M820 420 500 330M940 420 500 330'/> <path d='M150 420h700M250 396h500M330 376h340M395 360h210'/> <%21-- the bust: 3/4 profile, open contours --> <path d='M470 96q-40 10-46 54-4 30 4 52'/> <path d='M428 202l-16 16q-4 6 4 8l12 3'/> <path d='M428 229q8 6 20 5'/> <path d='M424 246q10 12 30 13'/> <path d='M454 259q22 4 40-6'/> <path d='M470 96q46 4 60 44 14 42 2 78-8 24-38 41'/> <path d='M494 259v34M456 262v31'/> <path d='M441 168q10-5 20 1'/> <path d='M470 116q22-16 44-4M462 106q-16 4-24 16'/> <%21-- shoulders and a fluted column stub --> <path d='M456 293q-52 10-66 44M494 293q54 10 68 44'/> <path d='M386 337h228'/> <path d='M400 420V344M436 420V342M472 420V341M508 420V341M544 420V342M580 420V344'/> <path d='M392 420h216'/> <%21-- palms, flanking --> <path d='M118 420q10-96 26-152'/> <path d='M144 268q-40-6-62 16M144 268q-30-26-30-56M144 268q6-38 34-54M144 268q34-14 62 6M144 268q30 12 40 40'/> <path d='M882 420q-10-96-26-152'/> <path d='M856 268q40-6 62 16M856 268q30-26 30-56M856 268q-6-38-34-54M856 268q-34-14-62 6M856 268q-30 12-40 40'/> </g></svg>") no-repeat center 30px / min(860px,88%) auto;
+  opacity:var(--wash);mix-blend-mode:screen}
+/* The two surfaces you actually write in get the quieter setting. Keyed off the
+   presence of a section block (.sec = reading copy, .ce = copyedit) so no builder
+   has to know about it. */
+body:has(.sec) .wrap::before,
+body:has(.ce) .wrap::before{opacity:var(--wash-prose)}
+
+/* ---- vapor display type ---------------------------------------------------
+   The interpunct is a pseudo-element on a wrapper span pal.js added (dotifyLead).
+   In paper there is NO ::after rule at all — deliberately, rather than hiding it
+   with opacity:0, because an invisible pseudo-element still occupies advance
+   width and would silently space out every heading on the quiet theme. */
+[data-theme="vapor"] .dt::after{content:"\00B7";color:var(--gold);opacity:var(--dot-op)}
+[data-theme="vapor"] .dt.last::after{content:none}   /* no trailing dot per word */
+[data-theme="vapor"] h1{letter-spacing:var(--tracking-display);text-shadow:var(--glow)}
+[data-theme="vapor"] .topbar .brand{letter-spacing:.04em}
+/* the kickers already use '·' as a WORD separator, so they get the signature from
+   tracking instead of letter-dotting (which would read R·e·g·i·s·t·e·r· ·S·t·r·i·p) */
+[data-theme="vapor"] .kicker{letter-spacing:.34em}
+
+/* ---- vapor chrome ---------------------------------------------------------
+   Where the look actually lives. All of it is confined to frame and furniture —
+   headers, rules, chips, spines, the bar — so the manuscript body underneath
+   stays plain light-on-dark with no gradient and no glow behind it. */
+[data-theme="vapor"] body{
+  /* a faint horizon grid over the whole page, fixed so it reads as a ground the
+     content floats on rather than something that scrolls with the text */
+  background-image:
+    repeating-linear-gradient(to right, #ff4fd80c 0 1px, transparent 1px 64px),
+    repeating-linear-gradient(to bottom, #4ff0ff0a 0 1px, transparent 1px 64px);
+  background-attachment:fixed;
+}
+/* the header rule becomes the iridescent band */
+[data-theme="vapor"] header{border-bottom:0;padding-bottom:18px;position:relative}
+[data-theme="vapor"] header::after{content:"";position:absolute;left:0;right:0;bottom:0;height:3px;
+  background:var(--iris);border-radius:2px;box-shadow:0 0 14px #ff4fd855}
+/* a sun sitting behind the page title: disc + scan bands, drawn in pure CSS */
+[data-theme="vapor"] header::before{content:"";position:absolute;right:2%;top:-14px;
+  width:190px;height:190px;border-radius:50%;pointer-events:none;z-index:0;
+  background:
+    repeating-linear-gradient(to bottom, transparent 0 12px, #0b072266 12px 15px,
+      transparent 15px 26px, #0b072288 26px 31px, transparent 31px 46px, #0b0722aa 46px 54px),
+    linear-gradient(180deg,#ff4fd8,#a855f7 55%,#4ff0ff);
+  opacity:.30;filter:blur(.3px)}
+[data-theme="vapor"] header>*{position:relative;z-index:1}
+[data-theme="vapor"] h2{border-bottom:0;box-shadow:0 2px 0 -1px var(--gold);text-shadow:var(--glow)}
+[data-theme="vapor"] .kicker{text-shadow:0 0 10px #ff4fd877}
+[data-theme="vapor"] .topbar{border-bottom:0;box-shadow:0 1px 0 0 #ff4fd855, 0 6px 24px -12px #4ff0ff66}
+[data-theme="vapor"] .palbtn{background:var(--iris);border-color:transparent;color:#0b0722;font-weight:600}
+[data-theme="vapor"] .palbtn[data-pal="rebuild"],[data-theme="vapor"] .paltheme{
+  background:transparent;color:var(--gold);border-color:var(--gold)}
+[data-theme="vapor"] nav.toc .navlink.here,[data-theme="vapor"] nav.toc .navdrop-btn.here{
+  box-shadow:0 0 12px -2px var(--gold)}
+/* a section's coloured spine gets a glow; the prose inside is untouched */
+[data-theme="vapor"] .sec{box-shadow:-3px 0 14px -6px var(--gold)}
+[data-theme="vapor"] .wrap{border-left:1px solid #ff4fd822;border-right:1px solid #4ff0ff1c}
+/* editable surfaces: an invisible caret makes the app unusable, and the default
+   selection is unreadable on this ground */
+[data-theme="vapor"] .body,[data-theme="vapor"] textarea,[data-theme="vapor"] input,
+[data-theme="vapor"] [contenteditable]{caret-color:var(--gold)}
+[data-theme="vapor"] ::selection{background:#ff4fd855;color:#fff}
+[data-theme="vapor"] ::placeholder{color:var(--faint);opacity:1}
+
+/* "built HH:MM" badge (nav.build_stamp) — a stale tab should be obvious */
+.buildstamp{position:fixed;bottom:6px;left:8px;z-index:99999;font:11px/1 ui-monospace,Menlo,monospace;
+  color:var(--faint);background:var(--bar);border:1px solid var(--line);border-radius:6px;
+  padding:3px 7px;pointer-events:none;user-select:none}
+@media(max-width:760px){.wrap{padding:28px 20px}h1{font-size:30px}}
+
+/* print / PDF: black-and-white friendly — drop chrome, render colored chips as outlined
+   black-on-white so nothing depends on colour on a mono printer */
+@media print{
+  /* Print is its own theme and must not depend on which look you were reading in:
+     forcing the tokens here makes both themes print identically, and keeps the
+     exports (which never see this stylesheet) honest. */
+  :root, :root[data-theme="vapor"]{
+    --bg:#fff; --paper:#fff; --bg2:#fff; --sunk:#fff; --card:#fff; --bar:#fff;
+    --field:#fff; --hilite:#fff; --invert-bg:#fff; --invert-ink:#000;
+    --ink:#000; --ink2:#000; --ink3:#000; --soft:#333; --faint:#555; --on-accent:#000;
+    --gold:#000; --accent-hi:#000; --accent2:#000; --red:#000; --ok:#000; --warn:#000;
+    --link:#000; --line:#bbb;
+    --shadow:none; --shadow-pop:none; --glow:none; --iris:none;
+    --note-bg:#fff; --quote-bg:#fff; --code-bg:#fff; --hover:#fff; --mark-bg:#fff;
+    --wash:0; --wash-prose:0; --art-op:0; --dot-op:0;
+    --tracking-display:-.01em;
+    color-scheme:light;
+  }
+  .dt::after{content:none}          /* not opacity:0 — that keeps the advance width */
+  .paltheme,.wrap::before{display:none !important}
+  /* the vapor chrome is decoration: none of it should reach paper */
+  [data-theme="vapor"] body{background-image:none}
+  [data-theme="vapor"] header::before,[data-theme="vapor"] header::after{display:none}
+  [data-theme="vapor"] header{border-bottom:2px solid #000;padding-bottom:22px}
+  [data-theme="vapor"] h2{box-shadow:none;border-bottom:1px solid #bbb;text-shadow:none}
+  [data-theme="vapor"] .kicker{text-shadow:none}
+  [data-theme="vapor"] .sec,[data-theme="vapor"] .wrap,[data-theme="vapor"] .topbar{
+    box-shadow:none;border-left-color:#bbb;border-right-color:#bbb}
+  .nh{fill:#000}
+  #scoreart .art-bust,#scoreart .art-palm,#scoreart .art-sun{display:none}
+  body{background:#fff;color:#000}
+  .wrap{max-width:none;box-shadow:none;padding:0 8px;min-height:0}
+  /* hide the interactive chrome */
+  .topbar,nav.toc,.buildstamp,.filterbar,.idxctl,.idxhelp,#bstatus,#modebar,.paltheme,
+  #recbar,#secbar,#seltoolbar,.rctl,#voices,.cfg,#drop,.src,.replay .rctl,.filt,.go{display:none !important}
+  /* colour → outlined black/white (chips, pills, counts, badges) */
+  .mchip,.lchip,.term .tg,.term .ct,.colhd .gn,.shelfct,.partbadge,
+  .cebadge,.achip,.lchip{background:#fff !important;color:#000 !important;border:1px solid #999 !important;box-shadow:none !important}
+  a,.term .secs a,.row,.tn,.al,.nt{color:#000 !important}
+  .row{border:1px solid #bbb !important;border-left:3px solid #000 !important;background:#fff !important}
+  h1,h2,.typegrp h2{color:#000 !important;border-bottom-color:#000 !important}
+  .term,.typegrp,.row,tr{break-inside:avoid}
+}

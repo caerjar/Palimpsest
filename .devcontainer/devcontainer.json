@@ -1,0 +1,12 @@
+{
+  "name": "Palimpsest",
+  "dockerComposeFile": "../compose.yaml",
+  "service": "pal",
+  "workspaceFolder": "/app",
+  "forwardPorts": [8137],
+  "portsAttributes": {
+    "8137": { "label": "Palimpsest", "onAutoForward": "openBrowser" }
+  },
+  "overrideCommand": true,
+  "postAttachCommand": "echo 'Open http://localhost:8137 — or run: python3 pal serve'"
+}

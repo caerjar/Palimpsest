@@ -1,0 +1,16 @@
+#!/usr/bin/env python3
+"""pal — dev launcher for a source checkout.
+
+Lets you run `./pal …` straight from the repo without installing anything: it puts
+the repo root on sys.path so `import palimpsest` resolves, then hands off to the
+same entry point pip/pipx installs as the `pal` command (palimpsest.cli.main).
+Installed users get that console script on their PATH and never touch this file.
+"""
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from palimpsest.cli import main  # noqa: E402
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

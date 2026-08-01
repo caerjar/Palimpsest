@@ -1,0 +1,26 @@
+# Keep the build context small and never bake anyone's books into the image.
+.git
+__pycache__/
+**/__pycache__/
+*.pyc
+.DS_Store
+
+# User books live on the host (mounted at /data); the dev workbench never ships.
+# The book template now lives inside the package (palimpsest/_template) and is
+# installed with it, so nothing under books/ needs to enter the build context.
+books/
+
+# Python build artifacts (the image builds its own wheel from pyproject.toml)
+build/
+dist/
+*.egg-info/
+.venv/
+venv/
+
+# Generated / local-only
+**/dossier/
+**/*.pdf
+**/*.docx
+**/deeper-analysis-CURRENT.md
+workbench/
+RELEASE-PLAN.md

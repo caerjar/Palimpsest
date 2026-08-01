@@ -1,0 +1,59 @@
+# Everything that has to be true before a change ships: the views build, the
+# origin gate holds, every write endpoint round-trips, and no authored text
+# becomes markup or LaTeX.
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # 3.11 is the floor (tomllib); the newest is what most people will run.
+        python-version: ['3.11', '3.13']
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: false     # homebrew-tap/ is a plain clone, never a submodule;
+                                # a gitlink here breaks GitHub Pages builds
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install pandoc
+        run: sudo apt-get update && sudo apt-get install -y pandoc
+
+      - name: Test
+        run: python -m unittest discover -s tests -v
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.13' }
+      - name: Compile-check every module
+        run: python -m compileall -q palimpsest demo packaging tests
+      - name: Ruff
+        # config in pyproject.toml — a bug-finder, not a style enforcer
+        run: pipx run ruff check --output-format github .
+
+  demo-in-sync:
+    # docs/index.html is a committed build artifact generated from
+    # engine/assets/writing-record.html. Rebuild it in the same commit as any
+    # change to that page, or the published demo drifts from the app.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.13' }
+      - run: python3 demo/build_demo.py
+      - name: docs/ must match the asset it is built from
+        run: git diff --exit-code -- docs/

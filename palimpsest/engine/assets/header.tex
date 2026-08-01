@@ -1,0 +1,72 @@
+% Palimpsest — default LaTeX header for `pal pdf` (pandoc + XeLaTeX).
+% Book-like prose typography plus multilingual glyph fallback (Greek, Hebrew,
+% arrows, letterlike aleph, CJK). Uses only packages available in BasicTeX.
+% Fonts below ship with macOS; override main/mono per book via book.toml [pdf]
+% (main_font / mono_font), or point [pdf] header at your own file entirely.
+
+\usepackage{fancyhdr}
+
+% --- Prose typography (book-like) ---------------------------------------
+\usepackage{microtype}                 % subtle kerning/justification polish
+\usepackage{setspace}\doublespacing     % double-spaced manuscript format (12pt, 1in margins)
+\setlength{\parindent}{0pt}            % block paragraphs (match the reading copy — no indent)
+\setlength{\parskip}{0.7\baselineskip plus 2pt}  % a visible space between paragraphs
+\raggedbottom                          % don't stretch short pages to full height
+\frenchspacing                         % single space after sentences
+
+% --- Fonts ---------------------------------------------------------------
+% Baskerville: a transitional serif. Menlo for the code/notation passages.
+% Both ship with macOS. Override via book.toml [pdf] main_font / mono_font.
+\setmainfont{Baskerville}[
+  BoldFont={Baskerville Bold},
+  ItalicFont={Baskerville Italic},
+  BoldItalicFont={Baskerville Bold Italic},
+]
+\setmonofont{Menlo}[Scale=0.85]
+
+% --- Multilingual glyph fallback ----------------------------------------
+% The main serif lacks Hebrew and some Greek/arrow glyphs. Auto-switch fonts per
+% Unicode block via XeTeX interchar classes. Fonts named below ship with macOS.
+\XeTeXinterchartokenstate=1
+\newcount\ebloop
+
+% Generic helper: assign all codepoints in [#2,#3) to char-class #1.
+\def\ebrange#1#2#3{%
+  \ebloop=#2
+  \loop \ifnum\ebloop<#3
+    \XeTeXcharclass\ebloop=#1
+    \advance\ebloop by 1
+  \repeat}
+\def\ebbind#1#2{% open with font #2 on entering class #1, close on leaving
+  \XeTeXinterchartoks 0 #1 = {\bgroup#2}%
+  \XeTeXinterchartoks 255 #1 = {\bgroup#2}%
+  \XeTeXinterchartoks 4095 #1 = {\bgroup#2}%
+  \XeTeXinterchartoks #1 0 = {\egroup}%
+  \XeTeXinterchartoks #1 255 = {\egroup}%
+  \XeTeXinterchartoks #1 4095 = {\egroup}}
+
+% Greek (U+0370–03FF) and Greek Extended (U+1F00–1FFF).
+\newfontfamily\greekfont{Times New Roman}
+\newXeTeXintercharclass\greekclass
+\ebrange\greekclass{"0370}{"0400}
+\ebrange\greekclass{"1F00}{"2000}
+\ebbind\greekclass\greekfont
+
+% Hebrew (U+0590–05FF).
+\newfontfamily\hebrewfont{Arial Hebrew}
+\newXeTeXintercharclass\hebrewclass
+\ebrange\hebrewclass{"0590}{"0600}
+\ebbind\hebrewclass\hebrewfont
+
+% Arrows (U+2190–21FF) + letterlike aleph (transfinite orders).
+\newfontfamily\arrowfont{Apple Symbols}
+\newXeTeXintercharclass\arrowclass
+\ebrange\arrowclass{"2190}{"2200}
+\ebrange\arrowclass{"2135}{"2139}
+\ebbind\arrowclass\arrowfont
+
+% CJK Unified Ideographs (U+4E00–9FFF) — defensive.
+\newfontfamily\cjkfont{Songti SC}
+\newXeTeXintercharclass\cjkclass
+\ebrange\cjkclass{"4E00}{"A000}
+\ebbind\cjkclass\cjkfont

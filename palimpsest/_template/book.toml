@@ -1,0 +1,45 @@
+# Palimpsest book. Everything here is relative to this directory, so the
+# book is self-contained and moves/copies without breaking.
+#
+#   manuscript/   your sections, as 001.md, 002.md, … (one file per section)
+#   manifests/    authored structure — order, labels, parts (the server writes these)
+#   dossier/      generated HTML (gitignored; rebuild it any time with `pal build`)
+
+[book]
+title    = "__TITLE__"
+subtitle = ""
+author   = "__AUTHOR__"
+
+# Paths. Relative entries resolve against this directory; absolute ones are
+# taken as-is. The defaults below are the standard layout — you only need to
+# change these to point at a manuscript kept somewhere else.
+manuscript  = "manuscript"
+suggestions = "manuscript-suggestions"
+manifests   = "manifests"
+data        = "data"
+out         = "dossier"
+
+# Commit every save, so each section has a browsable history in `pal serve`.
+# Needs the manuscript to be inside a git repo; set false for plain file writes.
+git = true
+
+# Which look the dossier opens with: "vapor" (dark, neon — the default) or
+# "paper" (quiet, cream). The top-bar toggle switches it any time and remembers
+# your choice in that browser; this setting decides what a first visit sees, and
+# travels with the book.
+# theme = "paper"
+
+# PDF export (`pal pdf`, pandoc + XeLaTeX). All optional; sensible defaults apply.
+# [pdf]
+# front_matter = "front-matter.md"   # printed before the sections (title page, epigraph)
+# header       = "header.tex"        # custom LaTeX header (fonts/typography)
+# main_font    = "Baskerville"       # override the default fonts on non-macOS machines
+# mono_font    = "Menlo"
+
+[views]
+# Which pages to build. Drop any you don't use — the nav follows.
+#   reading   the manuscript, editable          motifs   name a thread, colour it
+#   record    the writing record's data         copyedit per-section editor + flags
+#   parts     drag sections into parts          index    back-of-book term index
+#   board     a revision checklist
+enabled = ["reading", "motifs", "record", "copyedit", "parts", "index", "board"]
