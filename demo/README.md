@@ -7,6 +7,12 @@ scale, key and instrument moving as it goes.
 
 **Live: <https://caerjar.github.io/Palimpsest/>**
 
+The demo now also includes a recording feature that allows you to:
+- Type in the text area
+- Record your own typing session
+- Download your session as a .jsonl file
+- Load that file into the full Palimpsest application for playback
+
     python3 demo/build_demo.py
     open docs/index.html                        # no server needed
 
