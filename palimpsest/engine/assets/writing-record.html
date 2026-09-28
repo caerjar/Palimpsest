@@ -150,7 +150,7 @@ __PAL_HEAD__
 __PAL_NAV__
 <header><div class="kicker">Writing Record</div>
 <h1>Writing <span>record</span></h1>
-<p class="sub">Every keystroke, its speed, every deletion and pause — the prose caught in the act of being made. Visualized, and sung back.</p></header>
+<p class="sub">Every keystroke, its speed, every deletion and pause — the prose caught in the act of being made. Visualized, and sung back. <b>Try it yourself:</b> type in the text area below and record your own session.</p></header>
 
 <div class="src">
   <select id="pick"><option value="">— server sessions —</option></select>
@@ -161,6 +161,27 @@ __PAL_NAV__
   <span id="srcnote" class="empty"></span>
 </div>
 <div id="drop">drop a <code>writing-*.jsonl</code> here</div>
+
+<!-- Recording controls -->
+<div id="record-controls" style="margin: 16px 0;">
+  <button id="record-btn" class="primary">🎤 Start Recording</button>
+  <button id="stop-btn" disabled>⏹ Stop Recording</button>
+  <span id="record-status">Ready to record</span>
+  <div id="record-info" style="margin-top: 8px; display: none;">
+    <span id="record-duration">00:00</span>
+    <button id="download-wav">⬇ Download WAV</button>
+    <button id="download-mp3" disabled>⬇ Download MP3 (coming soon)</button>
+  </div>
+</div>
+
+<!-- Demo typing area for user recording -->
+<div id="demo-typing-area" style="margin-top: 16px;">
+  <h3>Try it yourself:</h3>
+  <textarea id="demo-textarea" placeholder="Type something here to record your own session..." 
+            style="width: 100%; height: 120px; font: 16px/1.6 Georgia, serif; 
+                   border: 1px solid var(--line); border-radius: 8px; padding: 12px;
+                   background: var(--card); color: var(--ink);"></textarea>
+</div>
 
 <div id="view" hidden>
   <div class="stats" id="stats"></div>
@@ -1757,6 +1778,117 @@ function syncMusicUI(){
   $('mmode') && $('mmode').addEventListener('change', e=>{ CONFIG.music.mode=e.target.value; syncConfigText(); rebuildTiming(); });
   $('mbpm') && $('mbpm').addEventListener('input', e=>{ CONFIG.music.bpm=+e.target.value; $('mbpmv').textContent=e.target.value; syncConfigText(); if((CONFIG.music.mode||'score')==='score') rebuildTiming(); });
   $('mrender') && $('mrender').addEventListener('click', renderWAV);
+  
+  // ---- Recording functionality for demo ----
+  let recording = false;
+  let recordStartTime = 0;
+  let recordEvents = [];
+  let recordTimer = null;
+  
+  function startRecording() {
+    if (recording) return;
+    
+    recording = true;
+    recordStartTime = performance.now();
+    recordEvents = [];
+    
+    const recordBtn = $('record-btn');
+    const stopBtn = $('stop-btn');
+    const status = $('record-status');
+    const textarea = $('demo-textarea');
+    
+    recordBtn.disabled = true;
+    stopBtn.disabled = false;
+    status.textContent = 'Recording...';
+    
+    // Start timer for duration display
+    recordTimer = setInterval(updateRecordDuration, 100);
+    
+    // Add event listeners for user input
+    textarea.addEventListener('keydown', handleRecordEvent);
+    textarea.addEventListener('keyup', handleRecordEvent);
+    textarea.addEventListener('input', handleRecordEvent);
+  }
+  
+  function stopRecording() {
+    if (!recording) return;
+    
+    recording = false;
+    clearInterval(recordTimer);
+    
+    const recordBtn = $('record-btn');
+    const stopBtn = $('stop-btn');
+    const status = $('record-status');
+    
+    recordBtn.disabled = false;
+    stopBtn.disabled = true;
+    status.textContent = 'Recording stopped';
+    
+    // Remove event listeners
+    const textarea = $('demo-textarea');
+    textarea.removeEventListener('keydown', handleRecordEvent);
+    textarea.removeEventListener('keyup', handleRecordEvent);
+    textarea.removeEventListener('input', handleRecordEvent);
+    
+    // Show download options
+    const recordInfo = $('record-info');
+    recordInfo.style.display = 'block';
+  }
+  
+  function updateRecordDuration() {
+    if (!recording) return;
+    
+    const elapsed = performance.now() - recordStartTime;
+    const seconds = Math.floor(elapsed / 1000);
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = seconds % 60;
+    
+    $('record-duration').textContent = `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+  }
+  
+  function handleRecordEvent(e) {
+    if (!recording) return;
+    
+    const event = {
+      type: e.type,
+      timestamp: performance.now() - recordStartTime,
+      key: e.key,
+      code: e.code,
+      keyCode: e.keyCode,
+      inputType: e.inputType
+    };
+    
+    // For input events, capture the data
+    if (e.target && e.target.value !== undefined) {
+      event.data = e.target.value;
+    }
+    
+    recordEvents.push(event);
+  }
+  
+  function downloadWAV() {
+    if (recordEvents.length === 0) return;
+    
+    // Create a simple JSONL file from the recorded events
+    const blob = new Blob([recordEvents.map(e => JSON.stringify(e)).join('\n')], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'recording-' + new Date().toISOString().replace(/[:.]/g, '-') + '.jsonl';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+  
+  // Set up event listeners for recording controls
+  $('record-btn').addEventListener('click', startRecording);
+  $('stop-btn').addEventListener('click', stopRecording);
+  $('download-wav').addEventListener('click', downloadWAV);
+  
+  // Initialize recording controls
+  $('stop-btn').disabled = true;
+  $('record-info').style.display = 'none';
 })();
 
 renderVoices();
