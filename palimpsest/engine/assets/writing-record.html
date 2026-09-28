@@ -179,12 +179,19 @@ __PAL_NAV__
   <h3>Try it yourself:</h3>
   <p style="font-size: 14px; color: var(--soft); margin-bottom: 8px;">
     Type in the box below, then record and download your session. 
-    You can load your downloaded .jsonl file into the full Palimpsest application for playback.
+    You can also load your downloaded .jsonl file into this demo for playback.
   </p>
   <textarea id="demo-textarea" placeholder="Type something here to record your own session..." 
             style="width: 100%; height: 120px; font: 16px/1.6 Georgia, serif; 
                    border: 1px solid var(--line); border-radius: 8px; padding: 12px;
                    background: var(--card); color: var(--ink);"></textarea>
+</div>
+
+<!-- File upload for user sessions -->
+<div id="session-upload" style="margin-top: 16px;">
+  <h3>Load your own session:</h3>
+  <label class="file">📂 Upload .jsonl file<input id="session-file" type="file" accept=".jsonl,.ndjson,application/json,text/plain"></label>
+  <span id="upload-status" class="empty"></span>
 </div>
 
 <div id="view" hidden>
@@ -1889,6 +1896,39 @@ function syncMusicUI(){
   $('record-btn').addEventListener('click', startRecording);
   $('stop-btn').addEventListener('click', stopRecording);
   $('download-wav').addEventListener('click', downloadWAV);
+  
+  // Handle session file uploads
+  $('session-file').addEventListener('change', function(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    const status = $('upload-status');
+    status.textContent = 'Loading session...';
+    
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      try {
+        const content = e.target.result;
+        const events = content.split('\n').filter(line => line.trim()).map(line => JSON.parse(line));
+        
+        // Clear any existing recording
+        if (recording) {
+          stopRecording();
+        }
+        
+        // Load the session like the demo does
+        ingest(events, { session: 'user-session', source: 'demo' }).then(() => {
+          status.textContent = 'Session loaded successfully!';
+          setTimeout(() => { status.textContent = ''; }, 3000);
+        }).catch(err => {
+          status.textContent = 'Error loading session: ' + err.message;
+        });
+      } catch (err) {
+        status.textContent = 'Error parsing session file: ' + err.message;
+      }
+    };
+    reader.readAsText(file);
+  });
   
   // Initialize recording controls
   $('stop-btn').disabled = true;
