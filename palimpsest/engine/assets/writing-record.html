@@ -169,7 +169,7 @@ __PAL_NAV__
   <span id="record-status">Ready to record</span>
   <div id="record-info" style="margin-top: 8px; display: none;">
     <span id="record-duration">00:00</span>
-    <button id="download-wav">⬇ Download WAV</button>
+    <button id="download-jsonl">⬇ Download JSONL</button>
     <button id="download-mp3" disabled>⬇ Download MP3 (coming soon)</button>
   </div>
 </div>
@@ -1895,7 +1895,7 @@ function syncMusicUI(){
   // Set up event listeners for recording controls
   $('record-btn').addEventListener('click', startRecording);
   $('stop-btn').addEventListener('click', stopRecording);
-  $('download-wav').addEventListener('click', downloadWAV);
+  $('download-jsonl').addEventListener('click', downloadWAV);
   
   // Handle session file uploads
   $('session-file').addEventListener('change', function(e) {
