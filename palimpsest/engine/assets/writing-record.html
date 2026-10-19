@@ -20,7 +20,7 @@ __PAL_HEAD__
 .leg{display:inline-flex;align-items:center;gap:5px;font-size:12.5px;color:var(--soft)}
 .leg i{width:11px;height:11px;border-radius:2px;display:inline-block}
 #strip{width:100%;height:132px;border:1px solid var(--line);border-radius:8px;background:var(--paper);display:block}
-.replay{display:grid;grid-template-columns:1fr;gap:12px;margin-top:10px}
+.replay{display:grid;grid-template-columns:minmax(0,1fr);gap:12px;margin-top:10px}   /* minmax: the 900px #scmap must not widen a phone page */
 .rctl{display:flex;flex-wrap:wrap;gap:14px;align-items:center;background:var(--card);
   border:1px solid var(--line);border-radius:10px;padding:10px 16px}
 .rctl button{font:14px Georgia,serif;border:1px solid var(--line);background:var(--paper);
@@ -124,7 +124,7 @@ __PAL_HEAD__
   color:var(--soft);border-radius:10px;padding:1px 9px;cursor:pointer}
 .scorebar button:hover{border-color:var(--gold);color:var(--gold)}
 #scpos{min-width:190px}
-#scmap{flex:1;height:24px;border:1px solid var(--line);border-radius:4px;background:var(--sunk);cursor:pointer;
+#scmap{flex:1;min-width:0;height:24px;border:1px solid var(--line);border-radius:4px;background:var(--sunk);cursor:pointer;
   display:block;width:auto;margin:0}
 .knob{width:32px;height:32px;border-radius:50%;background:radial-gradient(circle at 50% 38%,var(--field),var(--line));
   border:1px solid var(--line);position:relative;cursor:ns-resize;display:inline-block;vertical-align:middle;touch-action:none}
