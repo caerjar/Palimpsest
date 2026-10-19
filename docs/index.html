@@ -1050,7 +1050,21 @@ function updSect(){ $('nowsec').textContent = RP.curSect? ('§ section '+RP.curS
 
 // ---------- audio: layered voices (per-event, overlapping) + sustained drones ----------
 let AC=null;
-function ac(){ if(!AC){ try{AC=new (window.AudioContext||window.webkitAudioContext)();}catch(e){} bus(AC); } return AC; }
+function ac(){ if(!AC){ playbackSession(); try{AC=new (window.AudioContext||window.webkitAudioContext)();}catch(e){} bus(AC); } return AC; }
+// iOS routes Web Audio as "ambient", so the ringer switch on silent mutes it. Asking for
+// the "playback" session (Safari 16.4+) makes it play like a music app; older iOS gets the
+// same effect from a looping silent <audio> element started inside the user's tap.
+function playbackSession(){
+  try{ if(navigator.audioSession){ navigator.audioSession.type='playback'; return; } }catch(e){}
+  if(!/iP(hone|ad|od)/.test(navigator.userAgent) && !(navigator.maxTouchPoints>1 && /Mac/.test(navigator.platform))) return;
+  try{
+    const n=800, b=new DataView(new ArrayBuffer(44+n*2)), s=(o,t)=>{ for(let i=0;i<t.length;i++) b.setUint8(o+i,t.charCodeAt(i)); };
+    s(0,'RIFF'); b.setUint32(4,36+n*2,true); s(8,'WAVEfmt '); b.setUint32(16,16,true); b.setUint16(20,1,true); b.setUint16(22,1,true);
+    b.setUint32(24,8000,true); b.setUint32(28,16000,true); b.setUint16(32,2,true); b.setUint16(34,16,true); s(36,'data'); b.setUint32(40,n*2,true);
+    const el=document.createElement('audio'); el.setAttribute('x-webkit-airplay','deny'); el.loop=true; el.playsInline=true;
+    el.src=URL.createObjectURL(new Blob([b.buffer],{type:'audio/wav'})); el.play().catch(()=>{});
+  }catch(e){}
+}
 
 // ---------- synth engine: master FX bus + instrument presets + playNote ----------
 // A per-context bus (dry + reverb + delay -> master). Cached on ctx._bus so the live
@@ -1435,7 +1449,7 @@ function loop(){
   if(elapsed>=RP.total){ stop(); return; }
   raf=requestAnimationFrame(loop);
 }
-function play(){ if(!RP) return; if(ac()&&ac().state==='suspended') ac().resume();
+function play(){ if(!RP) return; if(ac()&&ac().state!=='running') ac().resume().catch(()=>{});  // iOS can also be 'interrupted'
   RP.playing=true; RP.t0=performance.now(); $('play').textContent='⏸ pause';
   updateDrones(RP.curSect);                                        // start tonic/section drones
   // set RP.i to first unfired step at current base
