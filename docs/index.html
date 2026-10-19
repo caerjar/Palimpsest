@@ -388,6 +388,7 @@ body { padding-bottom: 76px; }        /* room for the fixed caption bar */
 #scrub{width:100%;accent-color:var(--gold)}
 .empty{color:var(--soft);font-style:italic}
 .churn td.pos{color:var(--ok)}.churn td.neg{color:var(--red)}
+@media(max-width:700px){table.churn{display:block;overflow-x:auto}}   /* 8 columns: scroll the table, not the page */
 .lchip{font-size:11px;border:1px solid;border-radius:12px;padding:0 7px;margin:0 3px 0 0;display:inline-block;font-style:italic}
 #voices{display:flex;flex-wrap:wrap;gap:12px;align-items:center;background:var(--card);
   border:1px solid var(--line);border-radius:10px;padding:10px 16px;margin:6px 0}
