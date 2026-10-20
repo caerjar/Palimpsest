@@ -444,6 +444,11 @@ body { padding-bottom: 76px; }        /* room for the fixed caption bar */
 .harm{stroke-width:calc(.5px + var(--harm-gain,0)*1.2px);opacity:calc(.2 + var(--harm-gain,0)*.7)}
 .tonveil{fill:var(--faint);opacity:.10;transform-box:fill-box;transform-origin:top;
   transform:scaleY(calc(1 - var(--tone-frac,1)))}
+.tonveil.tonmove{transform:scaleY(calc(1 - clamp(0, var(--tone-frac,1) + var(--tone-off,0), 1)))}
+.swellmk{fill:none;stroke:var(--gold);stroke-width:.9;opacity:.75}
+.swellnote{opacity:.55}
+.keymk{fill:var(--gold);font:italic 10px Georgia,serif}
+.ltrdel{opacity:.55;text-decoration:line-through}
 .beatgrid{stroke:var(--line);stroke-width:.5;opacity:.5;fill:none}
 .pedal{stroke:var(--accent2);stroke-linecap:round;opacity:var(--drone-on,0);
   stroke-width:calc(.4px + var(--drone,0)*1.6px)}
@@ -484,6 +489,10 @@ body { padding-bottom: 76px; }        /* room for the fixed caption bar */
 .knob .kdot{position:absolute;left:50%;top:4px;width:3px;height:9px;background:var(--gold);border-radius:2px;
   transform-origin:50% 12px;transform:translateX(-50%) rotate(var(--ang,0deg))}
 .klabel{font-size:11px;color:var(--soft);display:inline-flex;flex-direction:column;align-items:center;gap:2px;margin:0 3px}
+.knob:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.kstops{display:flex;gap:2px}
+.kstops button{font:10.5px Georgia,serif;border:1px solid var(--line);background:var(--field);color:var(--soft);border-radius:9px;padding:1px 6px;cursor:pointer;line-height:1.4}
+.kstops button:hover,.kstops button[aria-pressed=true]{border-color:var(--gold);color:var(--gold)}
 .rctl .octbtn{font:15px Georgia,serif;border:1px solid var(--line);background:var(--paper);border-radius:6px;
   padding:0 8px;cursor:pointer;line-height:20px}
 .lmap{margin:6px 0 4px;border:1px solid var(--line);border-radius:8px;padding:4px 12px 10px;background:var(--card)}
@@ -715,8 +724,14 @@ const CONFIG = {
     // climb the scale (a=root, b=2nd, …). deg = scale degree; chord = a CHORD_TYPES name.
     letterMap:{},
     drone:{ mode:"off", gain:0.06 },
+    // the piece moving as it is written — all off here; the studio turns them on.
+    // paragraphKey: semitones the key moves at each new paragraph (7 = up a fifth).
+    // swell: a pause longer than ms holds a soft tonic chord. deleteFall: a run of
+    // backspaces falls through the erased letters instead of one ornament each.
+    paragraphKey:0, deleteFall:false, swell:{ on:false, ms:2000, gain:0.2 },
     classes:{ capsAccent:true, vowelShift:0 },
-    fx:{ reverb:0.4, delay:0.14, delayTime:0.3, delayFeedback:0.3, reverbSeconds:2.6, tone:2600 } },
+    // toneMove: octaves the tone swings with typing speed around the knob (0 = still)
+    fx:{ reverb:0.4, delay:0.14, delayTime:0.3, delayFeedback:0.3, reverbSeconds:2.6, tone:2600, toneMove:0 } },
   sonify: {
     // scale used to voice drones (Hz); label/motif names hash into it
     droneScale: [174.6,196.0,220.0,261.6,293.7,329.6],
@@ -979,14 +994,25 @@ let RP=null;   // replay state
 // (one grid slot per sounding event — inserted char / delete), so the keystrokes become a piece.
 function soundsInScore(e){ return e.type==='input' && (isIns(e) || isDel(e)); }
 function computeSteps(){
-  const M=CONFIG.music||{}, steps=[]; let vt=0;
+  const M=CONFIG.music||{}, SW=M.swell||{}, steps=[]; let vt=0;
+  // a pause longer than swell.ms gets room to be heard: the grid would otherwise
+  // squeeze it into one slot. `long` marks the event the pause came before.
+  const swellMs = SW.on ? Math.max(500, SW.ms||2000) : Infinity;
   if(M.mode==='score'){
     const interval = 60000/(M.bpm||96)/(M.subdiv||2);   // ms per note
-    EV.forEach(e=>{ steps.push({e, vt}); if(soundsInScore(e)) vt+=interval; });
+    let prevT = EV.length?EV[0].t:0;
+    EV.forEach(e=>{
+      const gap=e.t-prevT; prevT=e.t;
+      const st={e, vt};
+      if(gap>swellMs){ st.long=gap; vt+=interval*Math.min(4, 1+Math.floor(Math.log2(gap/swellMs))); st.vt=vt; }
+      steps.push(st); if(soundsInScore(e)) vt+=interval; });
   }else{
     const CAP=CONFIG.replay.gapCapMs; let prevT = EV.length?EV[0].t:0;
-    EV.forEach(e=>{ vt+=Math.min(e.t-prevT, CAP); prevT=e.t; steps.push({e, vt}); });
+    EV.forEach(e=>{ const gap=e.t-prevT; prevT=e.t;
+      vt+= gap>swellMs ? Math.min(gap, 4000) : Math.min(gap, CAP);
+      const st={e, vt}; if(gap>swellMs) st.long=gap; steps.push(st); });
   }
+  annotateSteps(steps);
   // note DURATION from real dwell time: gap to the next sounding keystroke (both modes → expressive sustain)
   const sIdx=[]; steps.forEach((s,ix)=>{ if(soundsInScore(s.e)) sIdx.push(ix); });
   for(let k=0;k<sIdx.length;k++){
@@ -994,7 +1020,45 @@ function computeSteps(){
     const gapMs = nxt ? Math.max(40, nxt.e.t - cur.e.t) : 500;
     cur.dur = gapMs/1000;
   }
+  // the step before a long pause carries the swell, so live playback schedules it
+  // from a moment it has already reached, never one in the past
+  let prevS=null, pending=0;
+  steps.forEach(st=>{
+    if(st.long) pending=Math.max(pending, st.long);
+    if(!soundsInScore(st.e)) return;
+    if(pending && prevS) prevS.swell={span:Math.max(0.3,(st.vt-prevS.vt)/1000), gapMs:pending};
+    pending=0; prevS=st;
+  });
   return {steps, total: vt||1};
+}
+// Facts about each step that depend only on the recording, never on a setting, so
+// a settings change never has to recompute them and seeking stays pure:
+//   para      paragraphs begun so far (a blank line counts once)
+//   erased    what a delete removed;  runChars  the backspace run so far, in the
+//             order erased (last 24)
+//   gap       ms since the previous sounding step;  bright  -1..1, fast = bright
+function annotateSteps(steps){
+  const S={text:'', caret:0, sect:null};
+  let para=0, run='', prevT=null, bright=0;
+  steps.forEach(st=>{
+    const e=st.e;
+    if(e.type==='editstart'){ para=0; run=''; }
+    const before=S.text.slice(0, Math.max(0, (typeof e.caret==='number'&&e.caret>0? e.caret-1 : S.caret)));
+    const erased=applyOp(S, e);
+    if(isIns(e)){
+      const d=e.data!=null?e.data:((e.inputType==='insertParagraph'||e.inputType==='insertLineBreak')?'\n':'');
+      if(d.indexOf('\n')>=0 && before.slice(-1)!=='\n' && before.length) para++;
+      run='';
+    }
+    if(isDel(e) && erased){ st.erased=erased; run=(run+[...erased].reverse().join('')).slice(-24); }
+    st.para=para; st.runChars=run;
+    if(soundsInScore(e)){
+      const gap = prevT==null ? 300 : Math.max(1, e.t-prevT); prevT=e.t;
+      const b=Math.max(-1, Math.min(1, 1 - 2*Math.log2(Math.max(1,gap)/120)/Math.log2(1500/120)));
+      bright += (b-bright)*0.3;
+      st.gap=gap; st.bright=bright;
+    }
+  });
 }
 function buildReplay(a){
   const r=computeSteps();
@@ -1017,28 +1081,29 @@ function rebuildTiming(){
   if(running) play();
 }
 // reconstruct the current section's text by applying ops up to virtual time vt
-function stateAt(vtLimit){
-  let text='', caret=0, sect=null, len=0;
-  for(const st of RP.steps){
-    if(st.vt>vtLimit) break;
-    const e=st.e;
-    if(e.type==='editstart'){ text=e.text0||''; caret=text.length; sect=e.section; }
-    else if(e.type==='input'){
-      const it=e.inputType||'';
-      const c=(typeof e.caret==='number'&&e.caret>=0)?e.caret:null;
-      if(it.indexOf('insert')===0){
-        let d = e.data!=null ? e.data : ((it==='insertParagraph'||it==='insertLineBreak')?'\n':'');
-        if(d){ const p=c!=null?Math.max(0,Math.min(c-d.length,text.length)):text.length;
-          text=text.slice(0,p)+d+text.slice(p); caret=p+d.length; }
-      } else if(it.indexOf('delete')===0){
-        const rem=(typeof e.len==='number')?Math.max(1,text.length-e.len):1;
-        const p=c!=null?Math.max(0,Math.min(c,text.length)):Math.max(0,text.length-rem);
-        text=text.slice(0,p)+text.slice(p+rem); caret=p;
-      }
-      if(e.section) sect=e.section;
-    }
+// apply one event to S = {text, caret, sect}; returns what a delete removed ('' otherwise)
+function applyOp(S, e){
+  if(e.type==='editstart'){ S.text=e.text0||''; S.caret=S.text.length; S.sect=e.section; return ''; }
+  if(e.type!=='input') return '';
+  const it=e.inputType||'', text=S.text;
+  const c=(typeof e.caret==='number'&&e.caret>=0)?e.caret:null;
+  let erased='';
+  if(it.indexOf('insert')===0){
+    let d = e.data!=null ? e.data : ((it==='insertParagraph'||it==='insertLineBreak')?'\n':'');
+    if(d){ const p=c!=null?Math.max(0,Math.min(c-d.length,text.length)):text.length;
+      S.text=text.slice(0,p)+d+text.slice(p); S.caret=p+d.length; }
+  } else if(it.indexOf('delete')===0){
+    const rem=(typeof e.len==='number')?Math.max(1,text.length-e.len):1;
+    const p=c!=null?Math.max(0,Math.min(c,text.length)):Math.max(0,text.length-rem);
+    erased=text.slice(p,p+rem); S.text=text.slice(0,p)+text.slice(p+rem); S.caret=p;
   }
-  return {text, caret, sect};
+  if(e.section) S.sect=e.section;
+  return erased;
+}
+function stateAt(vtLimit){
+  const S={text:'', caret:0, sect:null};
+  for(const st of RP.steps){ if(st.vt>vtLimit) break; applyOp(S, st.e); }
+  return S;
 }
 function applyUpTo(vt){
   const s=stateAt(vt);
@@ -1090,8 +1155,82 @@ function bus(ctx){
   const delay=ctx.createDelay(1.5); delay.delayTime.value=F.delayTime||0.3;
   const fb=ctx.createGain(); fb.gain.value=F.delayFeedback||0.3; delay.connect(fb); fb.connect(delay);
   const delSend=ctx.createGain(); delSend.gain.value=F.delay!=null?F.delay:0.14; delSend.connect(delay); delay.connect(master);
-  ctx._bus={master, revSend, delSend, tone};
+  ctx._bus={master, revSend, delSend, tone, delay, fb};
   return ctx._bus;
+}
+// push the current fx settings into a bus that already exists (a sound change
+// mid-session), so the live synth matches what the WAV render will build fresh
+function syncBus(ctx){
+  if(!ctx || !ctx._bus) return;
+  const F=CONFIG.music.fx||{}, b=ctx._bus;
+  b.tone.frequency.value=F.tone||2600;
+  b.revSend.gain.value=F.reverb!=null?F.reverb:0.4;
+  b.delSend.gain.value=F.delay!=null?F.delay:0.14;
+  b.delay.delayTime.value=F.delayTime||0.3;
+  b.fb.gain.value=F.delayFeedback||0.3;
+}
+
+// ---------- named sounds, and a sound picked from a seed ----------
+// Each is a partial CONFIG.music laid over the defaults. `keys` and `chords` are
+// what a roll may choose from; they are not settings.
+const SOUNDS = {
+  'music box':{ instrument:'musicbox', scale:'pentatonic', transpose:12, bpm:108, fx:{tone:4200},
+                keys:['C3','D3','F3','G3'], chords:['triad','seventh','sus2'] },
+  night:      { instrument:'warm', scale:'minor', bpm:72, fx:{tone:1600}, chorus:0.3, pad:true,
+                keys:['A3','D3','E3','C3'], chords:['triad','seventh','min7'] },
+  chapel:     { instrument:'organ', scale:'dorian', bpm:80, fx:{tone:2400, reverb:0.6},
+                keys:['D3','G3','A3'], chords:['triad','seventh','sus4'] },
+  bells:      { instrument:'bell', scale:'just major', bpm:96, fx:{tone:5200},
+                keys:['G3','C3','F3'], chords:['triad','seventh'] },
+  raga:       { instrument:'reed', scale:'raga yaman', bpm:88, fx:{tone:2200}, harmony:{on:false},
+                keys:['C3','D3'], chords:['triad'] },
+  rain:       { instrument:'pluck', scale:'lydian', bpm:132, fx:{tone:3200, delay:0.25},
+                keys:['E3','A3','D3'], chords:['triad','sus2','quartal'] }
+};
+function deepMerge(base, ...more){
+  more.forEach(o=>Object.keys(o||{}).forEach(k=>{
+    const v=o[k];
+    base[k] = (v && typeof v==='object' && !Array.isArray(v) && base[k] && typeof base[k]==='object')
+      ? deepMerge(Object.assign({}, base[k]), v) : (v && typeof v==='object' ? JSON.parse(JSON.stringify(v)) : v);
+  }));
+  return base;
+}
+// FNV-1a into mulberry32: the same seed always gives the same sequence
+function seeded(str){
+  let h=0x811c9dc5; for(let i=0;i<str.length;i++){ h^=str.charCodeAt(i); h=Math.imul(h,0x01000193)>>>0; }
+  return function(){ h=(h+0x6D2B79F5)>>>0; let t=h; t=Math.imul(t^(t>>>15), t|1);
+    t^=t+Math.imul(t^(t>>>7), t|61); return ((t^(t>>>14))>>>0)/4294967296; };
+}
+function soundMusic(name, extra){
+  const p=Object.assign({}, SOUNDS[name]||SOUNDS['music box']); delete p.keys; delete p.chords;
+  const m=deepMerge(JSON.parse(JSON.stringify(DEFAULTS.music)), extra||{}, p);
+  m.sound=name; return m;
+}
+// A sound for a piece, from its seed (the session id) and roll number. Draws happen
+// in a fixed order; add new ones at the END or every existing roll changes. Only
+// the sound's own neighbourhood is varied, so a roll always sounds like one of them.
+function rollMusic(seed, n, extra){
+  const r=seeded(String(seed)+':'+(n||0)), pick=a=>a[Math.floor(r()*a.length)%a.length];
+  const names=Object.keys(SOUNDS), name=pick(names), S=SOUNDS[name], m=soundMusic(name, extra);
+  const clamp=(v,lo,hi)=>Math.max(lo,Math.min(hi,v)), F=m.fx=m.fx||{};
+  m.rootNote=pick(S.keys);
+  m.bpm=Math.round(clamp((m.bpm||96)*(0.85+0.3*r()), 60, 150));
+  F.tone=Math.round(clamp((F.tone||2600)*Math.pow(2, 0.8*r()-0.4), 1000, 6000)/50)*50;
+  F.reverb=Math.round(clamp((F.reverb!=null?F.reverb:0.4)+0.16*r()-0.08, 0.15, 0.65)*100)/100;
+  (m.vibrato=m.vibrato||{}).depth=Math.round(clamp((m.vibrato.depth||0)+6*r(), 0, 12));
+  m.chorus=Math.round(clamp((m.chorus||0)+0.2*r()-0.1, 0, 0.5)*100)/100;
+  (m.harmony=m.harmony||{}).chordType=pick(S.chords);
+  m.paragraphKey=pick([7,5]);
+  m.roll=n||0;
+  return m;
+}
+// replace every music setting at once (a named sound, a roll, a share link)
+function applyMusic(m){
+  CONFIG.music=m;
+  syncMusicUI(); syncConfigText(); syncBus(AC);
+  if(RP && RP.playing){ stopAllDrones(); refreshDrone(); }
+  if(EV.length && RP) rebuildTiming();
+  if(typeof scoreSync==='function') scoreSync(true);
 }
 // oscillator layers, filter, ADSR, sends per instrument
 const INSTRUMENTS = {
@@ -1184,10 +1323,26 @@ const SCALES = {
 };
 const NOTE_SEMI = {C:0,'C#':1,D:2,'D#':3,E:4,F:5,'F#':6,G:7,'G#':8,A:9,'A#':10,B:11};
 function scaleLen(S){ return (S&&S.cents)?S.cents.length:S.length; }
+// The key a note sounds in can move by paragraph (music.paragraphKey). Rather than
+// thread a shift through every pitch helper, rootHz() reads KEYSH, which inKey()
+// sets for exactly the length of one call — so the helpers stay pure for callers.
+let KEYSH=0;
+function inKey(sh, fn){ const p=KEYSH; KEYSH=sh||0; try{ return fn(); } finally{ KEYSH=p; } }
+function keyShiftOf(step){                 // semitones, folded into -5..+6 so it never climbs
+  const pk=(CONFIG.music||{}).paragraphKey||0;
+  if(!pk || !step) return 0;
+  let s=(((step.para||0)*pk)%12+12)%12; if(s>6) s-=12;
+  return s;
+}
+function keyName(sh){                      // the tonic's name after a shift, e.g. 'G'
+  const M=CONFIG.music||{}, m=String(M.rootNote||'C3').match(/^([A-G]#?)/);
+  const names=Object.keys(NOTE_SEMI), i=(NOTE_SEMI[m?m[1]:'C']+(sh||0)+120)%12;
+  return names.find(n=>NOTE_SEMI[n]===i);
+}
 function rootHz(){
   const M=CONFIG.music||{}, m=String(M.rootNote||'C3').match(/^([A-G]#?)(-?\d)$/);
   let midi = m ? NOTE_SEMI[m[1]] + 12*(parseInt(m[2])+1) : 48;     // C3 -> MIDI 48
-  midi += (M.transpose||0);                                        // easy octave/semitone shift
+  midi += (M.transpose||0) + KEYSH;                                // octave shift + paragraph key
   return 440*Math.pow(2,(midi-69)/12);
 }
 // map an absolute scale-step (0=root) to a frequency (cents-aware, octave-capped)
@@ -1305,7 +1460,7 @@ function degFromHz(hz){                    // nearest scale degree, by cents
   }
   return best;
 }
-function noteEventsFor(e, step){
+function keyNotes(e, step){
   const M=CONFIG.music, H=M.harmony||{}, inst=M.instrument;
   const ch = e.data!=null ? e.data : ((e.inputType==='insertParagraph'||e.inputType==='insertLineBreak')?'\n':'');
   const dur=noteDur(e, step), vel=noteVel(e), i=letterIdx(ch);
@@ -1350,6 +1505,44 @@ function noteEventsFor(e, step){
   }
   return out;
 }
+// Every step's notes, in the key its paragraph is in. Deletes and pause swells come
+// through here too, so the score, the live synth and the WAV all read one function.
+function noteEventsFor(e, step){
+  const sh=keyShiftOf(step);
+  return inKey(sh, ()=>{
+    const out = isDel(e) ? delNotes(e, step) : keyNotes(e, step);
+    if(step && step.swell && (CONFIG.music.swell||{}).on) out.push(...swellNotes(step));
+    out.forEach(n=>{ n.key=sh; });
+    return out;
+  });
+}
+// a run of backspaces falls through the letters it erased: each one a scale step
+// (or more) below the last, so undoing a word sounds like the word going down
+function delNotes(e, step){
+  const M=CONFIG.music, vel=noteVel(e);
+  if(!M.deleteFall || !step || !step.erased) return ornamentEvents(vel);
+  const n=scaleLen(SCALES[M.scale]||SCALES.pentatonic), chars=[...(step.runChars||'')];
+  const degs=[]; let prev=null;
+  chars.forEach(c=>{
+    let d=degOfChar(c);
+    if(prev==null) d = d==null ? 0 : d;
+    else { if(d==null) d=prev-1; while(d>=prev) d-=n; }
+    d=Math.max(d, -n); degs.push(d); prev=d;
+  });
+  const k=Math.min(4, [...step.erased].length), from=degs.length-k;
+  return degs.slice(from).map((d,j)=>({deg:d, hz:scaleStepFreq(d), dur:0.18, vel:vel*0.5,
+    kind:'fall', inst:M.instrument, ch:chars[from+j], t:j*0.045}));
+}
+// a long pause, held: the tonic chord an octave down on the pad, swelling for as
+// long as the writer was thinking (louder the longer the pause)
+function swellNotes(step){
+  const M=CONFIG.music, SW=M.swell||{}, H=M.harmony||{};
+  const ct=CHORD_TYPES[H.chordType]||CHORD_TYPES.triad, n=scaleLen(SCALES[M.scale]||SCALES.pentatonic);
+  const span=step.swell.span, t=Math.min(0.4, span*0.25);
+  const vel=(SW.gain!=null?SW.gain:0.2)*(0.6+0.4*Math.min(1, Math.log2(step.swell.gapMs/Math.max(500,SW.ms||2000))/3));
+  return chordFreqsOf(0, H.chordType).map((hz,k)=>({deg: ct.steps ? ct.steps[k]-n : null, hz:hz/2,
+    dur:Math.max(0.3, span-t), vel:vel*(k?0.7:1), kind:'swell', inst:'pad', ch:'', t}));
+}
 // backspace -> a soft in-scale descending grace figure (a gentle "undo")
 function ornamentEvents(vel){
   return [5,3,1].map((s,k)=> ({deg:s, hz:scaleStepFreq(s), dur:0.14, vel:(vel||0.5)*0.4,
@@ -1357,20 +1550,35 @@ function ornamentEvents(vel){
 }
 // ---------------------------------------------------------------- and how it is played
 // Both are thin: they schedule whatever the pure functions describe.
-function playMelody(e, step, actx, whenArg){
-  const a=actx||ac(); if(!a) return;
-  const when=(whenArg!=null?whenArg:(a.currentTime||0));
-  noteEventsFor(e, step).forEach(n=> playNote(a, n.hz, when+(n.t||0), n.dur, n.vel, n.inst));
+// The ONE place a step becomes sound — live playback and the WAV render both call
+// it, so they cannot drift apart.
+function scheduleStep(a, st, when, live){
+  if(!a || !st) return;
+  const e=st.e;
+  if(isIns(e) || isDel(e))
+    noteEventsFor(e, st).forEach(n=> playNote(a, n.hz, when+(n.t||0), n.dur, n.vel, n.inst));
+  applyTone(a, st, when, live);
 }
-function playOrnament(a, when, vel){
-  if(!a) return;
-  ornamentEvents(vel).forEach(n=> playNote(a, n.hz, when+(n.t||0), n.dur, n.vel, n.inst));
+// typing speed bends the tone around the knob: bursts open it, slow typing closes it.
+// It moves the lowpass's DETUNE, so the knob (and the demo's autopilot) still own
+// its centre frequency.
+function toneCents(st){ return ((CONFIG.music.fx||{}).toneMove||0)*1200*((st&&st.bright)||0); }
+function applyTone(a, st, when, live){
+  const b=bus(a); if(!b || !soundsInScore(st.e) || !((CONFIG.music.fx||{}).toneMove>0)) return;
+  b.tone.detune.setTargetAtTime(toneCents(st), when, 0.18/(live&&RP?RP.speed:1));
+}
+// on play/seek: drop what was scheduled and start from the tone at the playhead
+function seedTone(){
+  const a=AC; if(!a || !a._bus || !RP) return;
+  let c=0; for(const st of RP.steps){ if(st.vt>RP.base) break; if(soundsInScore(st.e)) c=toneCents(st); }
+  const d=a._bus.tone.detune, now=a.currentTime;
+  try{ d.cancelScheduledValues(now); d.setValueAtTime(c, now); }catch(e){}
 }
 function sound(e, step){
   if(!$('sonify').checked) return;
   const ctx=ctxOf(e.section);
-  if(isIns(e)) playMelody(e, step);                                // letters -> the synth
-  else if(isDel(e)) playOrnament(ac(), (ac()&&ac().currentTime)||0, noteVel(e));  // backspace -> ornament
+  const a=ac(); scheduleStep(a, step, (a&&a.currentTime)||0, true);   // letters and deletions -> the synth
+  if(soundsInScore(e)) RP.key=keyShiftOf(step);
   CONFIG.sonify.voices.forEach(v=>{                                // tick and save; letters and deletions go through the synth
     if(!v.on) return;
     if(voiceMatches(v.match,e,ctx)) playVoice(v,e,ctx);
@@ -1389,9 +1597,10 @@ function targetDrones(ctx){
   const t={};
   // tonic pedal — a sustained root (+fifth) in the current key/transpose, always available
   const dm=CONFIG.music.drone||{};
-  if(dm.mode==='tonic'){
-    t['tonic:root']={f:rootHz(), wave:'sine', gain:dm.gain||0.06};
-    t['tonic:fifth']={f:rootHz()*1.5, wave:'sine', gain:(dm.gain||0.06)*0.55};
+  if(dm.mode==='tonic'){                   // follows the paragraph key (RP.key)
+    const sh=(RP&&RP.key)||0, r=inKey(sh, rootHz);
+    t['tonic:root:'+sh]={f:r, wave:'sine', gain:dm.gain||0.06};
+    t['tonic:fifth:'+sh]={f:r*1.5, wave:'sine', gain:(dm.gain||0.06)*0.55};
   }else if(dm.mode==='section'){
     // one sustained tone per section, pitched by where the section sits in the book
     t['sect:pedal']={f:droneFreq('section','',ctx), wave:'sine', gain:dm.gain||0.06};
@@ -1445,13 +1654,15 @@ function loop(){
     }
     moveScoreHead(elapsed);
   }
-  if(RP.curSect!==RP.droneSect){ RP.droneSect=RP.curSect; updateDrones(RP.curSect); }
+  if(RP.curSect!==RP.droneSect || RP.key!==RP.droneKey){ RP.droneSect=RP.curSect; RP.droneKey=RP.key; updateDrones(RP.curSect); }
   $('scrub').value = Math.min(1000, elapsed/RP.total*1000);
   if(elapsed>=RP.total){ stop(); return; }
   raf=requestAnimationFrame(loop);
 }
 function play(){ if(!RP) return; if(ac()&&ac().state!=='running') ac().resume().catch(()=>{});  // iOS can also be 'interrupted'
   RP.playing=true; RP.t0=performance.now(); $('play').textContent='⏸ pause';
+  RP.key=0; for(const st of RP.steps){ if(st.vt>RP.base) break; if(soundsInScore(st.e)) RP.key=keyShiftOf(st); }
+  RP.droneKey=RP.key; seedTone();
   updateDrones(RP.curSect);                                        // start tonic/section drones
   // set RP.i to first unfired step at current base
   RP.i=0; while(RP.i<RP.steps.length && RP.steps[RP.i].vt<=RP.base) RP.i++;
@@ -1536,7 +1747,8 @@ function scoreLayout(){
 // skeleton only: no pitch, so this is cheap and safe to call on a bpm drag
 function scoreRetime(){
   let k=0;
-  RP && RP.steps.forEach(st=>{ if(soundsInScore(st.e) && SC.items[k]) SC.items[k++].vt = st.vt; });
+  // re-point the step too: a retime builds new step objects, and the swell lives on them
+  RP && RP.steps.forEach(st=>{ if(soundsInScore(st.e) && SC.items[k]){ SC.items[k].vt = st.vt; SC.items[k++].step = st; } });
 }
 function scoreBuild(){
   SC.items=[]; SC.degs=[];
@@ -1547,14 +1759,16 @@ function scoreBuild(){
     if(e.type==='save'){ pendingSave=true; return; }      // hangs off the next note
     if(!soundsInScore(e)) return;
     const gap = prevT==null ? 0 : Math.max(0, e.t - prevT); prevT = e.t;
-    SC.items.push({vt:st.vt, step:st, e, del:isDel(e), pause:gap, save:pendingSave});
+    const key=keyShiftOf(st), last=SC.items[SC.items.length-1];
+    SC.items.push({vt:st.vt, step:st, e, del:isDel(e), pause:gap, save:pendingSave,
+                   key, keyChange: !!last && last.key!==key});
     pendingSave=false;
   });
   // the mini-map wants one degree per item; pitch doesn't depend on tempo, so this
   // is computed here (on load and on pitch-control changes) and never on a retime
   SC.items.forEach(it=>{
     if(it.del){ SC.degs.push(null); return; }
-    const ns=noteEventsFor(it.e, it.step).filter(n=>n.kind!=='harmony'&&n.kind!=='pad');
+    const ns=noteEventsFor(it.e, it.step).filter(n=>n.kind!=='harmony'&&n.kind!=='pad'&&n.kind!=='swell');
     SC.degs.push(ns.length ? ns[0].deg : null);
   });
   scoreLayout();
@@ -1635,16 +1849,23 @@ function glyphsFor(it, s, k, under, over){
 
   // --- deletion: a Cage descending arc with X noteheads ---
   if(it.del){
-    const ns=ornamentEvents(noteVel(it.e)), lean=Math.max(1, SC.DX*0.15);
+    const ns=noteEventsFor(it.e, it.step).filter(n=>n.kind!=='swell'), lean=Math.max(1, SC.DX*0.15);
+    swellMarks(it, x, s, under, over);
+    if(!ns.length) return;
     const pts=ns.map((n,j)=>[x+j*lean, yOf(s,posOf(n.deg))]);
     under.push(`<path class="orn" d="M ${pts.map(p=>p[0].toFixed(1)+','+p[1].toFixed(1)).join(' L ')}"/>`);
     pts.forEach(p=>{ over.push(`<line class="ornx" x1="${(p[0]-2.4).toFixed(1)}" y1="${(p[1]-2.4).toFixed(1)}" x2="${(p[0]+2.4).toFixed(1)}" y2="${(p[1]+2.4).toFixed(1)}"/>`);
                      over.push(`<line class="ornx" x1="${(p[0]-2.4).toFixed(1)}" y1="${(p[1]+2.4).toFixed(1)}" x2="${(p[0]+2.4).toFixed(1)}" y2="${(p[1]-2.4).toFixed(1)}"/>`); });
     under.push(`<line class="strike" x1="${(x-3).toFixed(1)}" y1="${yOf(s,4)}" x2="${(x+ns.length*lean).toFixed(1)}" y2="${yOf(s,4)}"/>`);
+    if(tier>=3) ns.forEach((n,j)=>{ if(n.ch) over.push(`<text class="ltr ltrdel" x="${(x+j*lean).toFixed(1)}" y="${(y1+16).toFixed(1)}">${esc2(n.ch)}</text>`); });
     return;
   }
 
-  const notes=noteEventsFor(it.e, it.step);
+  toneVeil(it, x, y0, y1, under);
+  if(it.keyChange && tier>=1)                 // the paragraph moved the key
+    over.push(`<text class="keymk" x="${(x-3).toFixed(1)}" y="${y0-12}">→${esc2(keyName(it.key)||'')}</text>`);
+  swellMarks(it, x, s, under, over);
+  const notes=noteEventsFor(it.e, it.step).filter(n=>n.kind!=='swell');
   // A rest draws no notehead — but it may still carry a divisio, a pause band or a
   // save mark, and those must survive: a pause is usually followed by a space.
   if(!notes.length) return;
@@ -1723,7 +1944,7 @@ function glyphsFor(it, s, k, under, over){
   subs.forEach(n=>{
     // a semitone-defined chord (quartal, maj7…) has no integer degree — place it by
     // its frequency instead, or it never gets drawn at all
-    const deg = n.deg!=null ? n.deg : degFromHz(n.hz);
+    const deg = n.deg!=null ? n.deg : inKey(n.key, ()=>degFromHz(n.hz));
     if(deg==null) return;
     // harmony sounds `drop` semitones below where its degree sits, so nudge it down
     const drop=tier>=1 ? ((M.harmony||{}).drop||0)/12*4 : 0;
@@ -1733,7 +1954,7 @@ function glyphsFor(it, s, k, under, over){
 
   // --- the note itself ---
   mains.forEach(n=>{
-    const deg = n.deg!=null ? n.deg : degFromHz(n.hz);
+    const deg = n.deg!=null ? n.deg : inKey(n.key, ()=>degFromHz(n.hz));
     if(deg==null) return;
     const p=posOf(deg), y=yOf(s,p), oct=octOf(deg), caps=/[A-Z]/.test(n.ch||'');
     envLine(x, y, n.dur, n.vel);
@@ -1753,6 +1974,23 @@ function glyphsFor(it, s, k, under, over){
   });
 }
 
+// a long pause before the next note: a hairpin opening into the held chord, with
+// the pad's hollow squares under it
+function swellMarks(it, x, s, under, over){
+  if(!it.step || !it.step.swell || !((CONFIG.music.swell||{}).on)) return;
+  const y0=staffTop(s), y1=y0+(SC.LINES-1)*SC.STEP*2, xa=x+0.3*SC.DX, xb=x+SC.DX-1, ym=y1+9;
+  under.push(`<path class="swellmk" d="M ${xb.toFixed(1)},${ym-3} L ${xa.toFixed(1)},${ym} L ${xb.toFixed(1)},${ym+3}"/>`);
+  noteEventsFor(it.e, it.step).filter(n=>n.kind==='swell' && n.deg!=null).forEach(n=>{
+    const y=yOf(s,posOf(n.deg));
+    over.push(`<rect class="padnote swellnote" x="${(xa+1).toFixed(1)}" y="${(y-2).toFixed(1)}" width="4" height="4"/>`); });
+}
+// with typing speed moving the tone, each note carries its own veil: the knob's
+// centre is the CSS var (--tone-frac), this step's bend is baked in (--tone-off)
+function toneVeil(it, x, y0, y1, under){
+  if(!(((CONFIG.music.fx||{}).toneMove||0)>0) || !it.step) return;
+  const off=toneCents(it.step)/1200/Math.log2(8000/600);
+  under.push(`<rect class="tonveil tonmove" x="${(x-SC.DX/2).toFixed(1)}" y="${y0-14}" width="${SC.DX.toFixed(1)}" height="${(y1-y0)+28}" style="--tone-off:${off.toFixed(3)}"/>`);
+}
 // a sine drawn as a polyline; depth is applied by CSS (scaleY of --vib) so the knob
 // costs nothing to turn
 function vibPath(x0, y, len, pps){
@@ -1779,7 +2017,7 @@ function scoreDraw(){
     $('scpos').textContent='no score yet'; drawHeader(); return;
   }
   const start=SC.page*SC.perPage, under=[], over=[];
-  const clefName=String(M.rootNote||'C3').replace(/-?\d+$/,'');
+  const clefRoot=String(M.rootNote||'C3').replace(/-?\d+$/,'');
   const oct=Math.round((M.transpose||0)/12);
   for(let s=0; s<SC.SYSTEMS; s++){
     const from=start+s*SC.perSys, slice=SC.items.slice(from, from+SC.perSys);
@@ -1792,8 +2030,10 @@ function scoreDraw(){
       under.push(`<line class="staffline" x1="${SC.PAD-16}" y1="${y}" x2="${xEnd.toFixed(1)}" y2="${y}"/>`);
     }
     // tone: a veil over the upper register. --tone-frac scales it away as you open up
-    under.push(`<rect class="tonveil" x="${SC.PAD-16}" y="${y0-14}" width="${(xEnd-SC.PAD+16).toFixed(1)}" height="${(y1-y0)+28}"/>`);
-    // the clef tells the truth about the key, and the octave shift
+    if(!(((M.fx||{}).toneMove||0)>0))       // otherwise each note draws its own (toneVeil)
+      under.push(`<rect class="tonveil" x="${SC.PAD-16}" y="${y0-14}" width="${(xEnd-SC.PAD+16).toFixed(1)}" height="${(y1-y0)+28}"/>`);
+    // the clef tells the truth about the key (as this system begins), and the octave shift
+    const clefName = slice[0].key ? keyName(slice[0].key) : clefRoot;
     over.push(`<text class="clef" x="${SC.PAD-38}" y="${y1+4}">${esc2(clefName)}${oct?`<tspan class="clefoct" dy="-6">${oct>0?'+':''}${oct}</tspan>`:''}</text>`);
     over.push(`<text class="syslabel" x="${SC.W-14}" y="${y0-6}" text-anchor="end">${from+1}–${from+slice.length}</text>`);
     // beat grid: only meaningful on the quantized grid, so score mode only
@@ -1890,7 +2130,8 @@ function drawScoreMap(){
 function pitchKey(){
   const M=CONFIG.music||{}, H=M.harmony||{}, C=M.classes||{};
   return JSON.stringify([M.scale,M.rootNote,M.transpose,M.octaves,M.pad,M.letterMap,
-                         H.on,H.cadence,H.chordType,H.drop,H.gain,C.vowelShift,C.capsAccent]);
+                         H.on,H.cadence,H.chordType,H.drop,H.gain,C.vowelShift,C.capsAccent,
+                         M.paragraphKey,M.deleteFall,M.swell]);
 }
 // The cheapest channel: every global parameter as a CSS custom property on the
 // <svg>. Marks are drawn once at full size and then scaled/faded by these, so a
@@ -1922,7 +2163,7 @@ function applyScoreVars(){
 // What changes the ONSETS. Re-times the piece; the most expensive.
 function timeKey(){
   const M=CONFIG.music||{};
-  return JSON.stringify([M.mode,M.bpm,M.subdiv,(CONFIG.replay||{}).gapCapMs]);
+  return JSON.stringify([M.mode,M.bpm,M.subdiv,(CONFIG.replay||{}).gapCapMs,(M.swell||{}).on,(M.swell||{}).ms]);
 }
 // What changes the INK but never a notehead's position — so it only needs a redraw,
 // not a rebuild. (noteLen and velocity belong here, not in pitchKey: they change how
@@ -2031,8 +2272,7 @@ async function renderWAV(){
     const OAC = window.OfflineAudioContext||window.webkitOfflineAudioContext;
     const octx = new OAC(2, Math.max(1,Math.ceil(secs*rate)), rate);
     bus(octx);
-    RP.steps.forEach(st=>{ if(isIns(st.e)) playMelody(st.e, st, octx, st.vt/1000);
-                           else if(isDel(st.e)) playOrnament(octx, st.vt/1000, noteVel(st.e)); });
+    RP.steps.forEach(st=> scheduleStep(octx, st, st.vt/1000));
     const rendered = await octx.startRendering();
     const blob = encodeWAV(rendered);
     const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
@@ -2045,19 +2285,57 @@ async function renderWAV(){
 function makeKnob(el, opts){
   if(!el) return {set:()=>{}};
   el.innerHTML='<span class="kdot"></span>'; let val=opts.value;
-  function render(){ const f=(val-opts.min)/(opts.max-opts.min); el.style.setProperty('--ang',(-135+f*270)+'deg'); el.title=(opts.fmt?opts.fmt(val):(''+val)); }
-  render();
-  let sy=0, sv=0, drag=false;
-  el.addEventListener('pointerdown',e=>{ drag=true; sy=e.clientY; sv=val; try{el.setPointerCapture(e.pointerId);}catch(_){} e.preventDefault(); });
-  el.addEventListener('pointermove',e=>{ if(!drag) return; let v=sv+(sy-e.clientY)/140*(opts.max-opts.min); v=Math.max(opts.min,Math.min(opts.max,v)); if(opts.step) v=Math.round(v/opts.step)*opts.step; val=v; render(); opts.onInput(val);
+  const span=opts.max-opts.min, keyStep=opts.keyStep||span/40;
+  el.tabIndex=0; el.setAttribute('role','slider');
+  if(opts.label) el.setAttribute('aria-label', opts.label);
+  el.setAttribute('aria-valuemin', opts.min); el.setAttribute('aria-valuemax', opts.max);
+  function render(){ const f=(val-opts.min)/span; el.style.setProperty('--ang',(-135+f*270)+'deg');
+    const txt=opts.fmt?opts.fmt(val):(''+val); el.title=txt;
+    el.setAttribute('aria-valuenow', val); el.setAttribute('aria-valuetext', txt);
+    if(stops) stops.querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed', +b.dataset.v===val?'true':'false')); }
+  // every way of changing the value — drag, tap, keys, wheel, a stop — comes here
+  function commit(v){
+    v=Math.max(opts.min,Math.min(opts.max,v)); if(opts.step) v=Math.round(v/opts.step)*opts.step;
+    val=v; render(); opts.onInput(val);
     // A knob is a <span>, not a form control, so it emits nothing on its own and the
     // delegated listener on .replay would never hear it. One bubbling event wires up
     // every knob, including any added later.
-    el.dispatchEvent(new Event('input',{bubbles:true})); });
-  const endDrag=e=>{ drag=false; try{ if(e&&e.pointerId!=null) el.releasePointerCapture(e.pointerId); }catch(_){} };
-  el.addEventListener('pointerup', endDrag);
+    el.dispatchEvent(new Event('input',{bubbles:true}));
+  }
+  // labelled stops jump straight to a value, without sweeping through the ones between
+  let stops=null;
+  if(opts.stops && el.parentNode){
+    stops=document.createElement('span'); stops.className='kstops';
+    opts.stops.forEach(([label,v])=>{ const b=document.createElement('button'); b.type='button';
+      b.textContent=label; b.dataset.v=v; b.addEventListener('click', ()=>commit(v)); stops.appendChild(b); });
+    el.parentNode.appendChild(stops);
+  }
+  render();
+  // drag up/down to sweep; a TAP sets the value at that point on the arc
+  let sy=0, sx=0, sv=0, t0=0, drag=false, moved=false;
+  el.addEventListener('pointerdown',e=>{ drag=true; moved=false; sy=e.clientY; sx=e.clientX; sv=val; t0=performance.now();
+    try{el.setPointerCapture(e.pointerId);}catch(_){} e.preventDefault(); el.focus({preventScroll:true}); });
+  el.addEventListener('pointermove',e=>{ if(!drag) return;
+    if(!moved && Math.hypot(e.clientX-sx, e.clientY-sy)<4) return;
+    moved=true; commit(sv+(sy-e.clientY)/140*span); });
+  const endDrag=e=>{ if(!drag) return; drag=false;
+    try{ if(e&&e.pointerId!=null) el.releasePointerCapture(e.pointerId); }catch(_){} };
+  el.addEventListener('pointerup', e=>{
+    if(drag && !moved && performance.now()-t0<350){
+      const r=el.getBoundingClientRect(), dx=e.clientX-(r.left+r.width/2), dy=e.clientY-(r.top+r.height/2);
+      const ang=Math.max(-135, Math.min(135, Math.atan2(dx, -dy)*180/Math.PI));
+      commit(opts.min+(ang+135)/270*span);
+    }
+    endDrag(e); });
   el.addEventListener('pointercancel', endDrag);          // a drag that leaves the window
   el.addEventListener('lostpointercapture', endDrag);     // …or loses capture mid-gesture
+  el.addEventListener('keydown', e=>{
+    const k=e.key, big=keyStep*5;
+    const to = k==='ArrowUp'||k==='ArrowRight' ? val+keyStep : k==='ArrowDown'||k==='ArrowLeft' ? val-keyStep
+             : k==='PageUp' ? val+big : k==='PageDown' ? val-big : k==='Home' ? opts.min : k==='End' ? opts.max : null;
+    if(to==null) return; e.preventDefault(); commit(to); });
+  el.addEventListener('wheel', e=>{ e.preventDefault(); commit(val+(e.deltaY<0?keyStep:-keyStep)); }, {passive:false});
+  // set() is silent on purpose: the demo autopilot moves knobs without "touching" them
   return { set:v=>{ val=v; render(); } };
 }
 const KNOBS={};
@@ -2124,10 +2402,11 @@ function syncMusicUI(){
   const mi=$('minst'); if(mi) Object.keys(INSTRUMENTS).forEach(k=>{ const o=document.createElement('option'); o.value=k; o.textContent=k; mi.appendChild(o); });
   const mc=$('mchord'); if(mc) Object.keys(CHORD_TYPES).forEach(k=>{ const o=document.createElement('option'); o.value=k; o.textContent=k; mc.appendChild(o); });
   const F=CONFIG.music.fx||{}, V=CONFIG.music.vibrato||{};
-  KNOBS.tone=makeKnob($('ktone'),{min:600,max:8000,step:50,value:F.tone||2600, fmt:v=>Math.round(v)+'Hz', onInput:v=>{ (CONFIG.music.fx=CONFIG.music.fx||{}).tone=v; if(AC&&AC._bus) AC._bus.tone.frequency.value=v; syncConfigText(); }});
-  KNOBS.vib=makeKnob($('kvib'),{min:0,max:30,step:1,value:V.depth||0, fmt:v=>v+'c', onInput:v=>{ (CONFIG.music.vibrato=CONFIG.music.vibrato||{}).depth=v; syncConfigText(); }});
-  KNOBS.chor=makeKnob($('kchor'),{min:0,max:1,step:0.02,value:CONFIG.music.chorus||0, fmt:v=>v.toFixed(2), onInput:v=>{ CONFIG.music.chorus=v; syncConfigText(); }});
-  KNOBS.sub=makeKnob($('ksub'),{min:0,max:1,step:0.02,value:CONFIG.music.sub||0, fmt:v=>v.toFixed(2), onInput:v=>{ CONFIG.music.sub=v; syncConfigText(); }});
+  KNOBS.tone=makeKnob($('ktone'),{min:600,max:8000,step:50,value:F.tone||2600, fmt:v=>Math.round(v)+'Hz', label:'tone', keyStep:200,
+    stops:[['dark',1200],['warm',2600],['bright',4800],['open',7600]], onInput:v=>{ (CONFIG.music.fx=CONFIG.music.fx||{}).tone=v; if(AC&&AC._bus) AC._bus.tone.frequency.value=v; syncConfigText(); }});
+  KNOBS.vib=makeKnob($('kvib'),{label:'vibrato', min:0,max:30,step:1,value:V.depth||0, fmt:v=>v+'c', onInput:v=>{ (CONFIG.music.vibrato=CONFIG.music.vibrato||{}).depth=v; syncConfigText(); }});
+  KNOBS.chor=makeKnob($('kchor'),{label:'chorus', min:0,max:1,step:0.02,value:CONFIG.music.chorus||0, fmt:v=>v.toFixed(2), onInput:v=>{ CONFIG.music.chorus=v; syncConfigText(); }});
+  KNOBS.sub=makeKnob($('ksub'),{label:'body', min:0,max:1,step:0.02,value:CONFIG.music.sub||0, fmt:v=>v.toFixed(2), onInput:v=>{ CONFIG.music.sub=v; syncConfigText(); }});
   // letter → note/chord map editor
   lmDegOptions($('lmdeg')); lmChordOptions($('lmchord')); lmDegOptions($('lmgdeg')); lmChordOptions($('lmgchord'));
   $('lmdeg') && $('lmdeg').addEventListener('change', ()=>{ setLetter(LMSEL, $('lmdeg').value, $('lmchord').value); renderLetterMap(); });
